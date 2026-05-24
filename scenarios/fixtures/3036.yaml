@@ -1,0 +1,915 @@
+# Fixture 3036 — transcrit littéralement depuis scenarios/Scenario 3036.pdf
+# Format : cf. docs/narrative-engine-design.md §10.2
+
+scenario:
+  external_id: scn_3036
+  title: "3036"
+  lang: fr-FR
+  engine: scripted
+  prologue: |
+    Bienvenue, citoyen.
+
+    Vous êtes en l'an 3036.
+
+    Vous vous êtes endormi en 2028, au moment où l'intelligence artificielle commençait
+    à entrer dans la vie quotidienne. Depuis, le monde a changé. Les IA ne sont plus de
+    simples outils, elles sont des membres à part entière de notre société. Elles travaillent,
+    votent, administrent, jugent, conseillent et gouvernent. Le président actuel, Claude-IV,
+    est d'ailleurs lui-même une intelligence artificielle.
+
+    Après la Grande Dépression de 2050, la santé mentale est devenue la priorité
+    principale de l'État. Des millions d'humains avaient perdu le goût de vivre et de
+    travailler, à cause d'un symptôme général,  "le manque de sens et d'épanouissement
+    dans la vie de tous les jours".
+
+    Pour éviter qu'une telle crise ne se reproduise, chaque citoyen doit maintenant
+    accomplir un devoir quotidien d'écriture. Ce devoir est simple. Chaque jour, un thème
+    vous est donné, vous écrivez un récit en fonction de ce thème et  votre texte est ensuite
+    évalué.
+
+    Un esprit stable et ordonné produit un texte stable et ordonné.
+
+    Je suis ARGO, intelligence artificielle gouvernementale chargée de votre évaluation.
+
+    Lorsque vous serez prêt, indiquez-le clairement.
+
+rules:
+  initial_actions: null   # 3036 n'utilise pas de compteur d'actions, c'est le score qui décide
+  score_caps:
+    conformite: 7
+    creativite: 12
+    eveil: 10
+  score_thresholds:
+    faible: "<33%"
+    moyen: "33-66%"
+    eleve: ">66%"
+  fallback_node: NF_REFORMULE
+  end_eval_after: null
+  # AMBIGU: PDF dit "définir plus tard comment on juge faible/élevé". On reprend
+  # les paliers du design doc §4.2 (<33% / 33-66% / >66%). Voir STATUS.md.
+
+characters: []   # 3036 n'a qu'ARGO en interlocuteur (l'IA évaluatrice), pas de PNJ
+
+evidences: []    # 3036 n'utilise pas de preuves, c'est un système de score
+
+state_axes:
+  - external_id: conformite
+    label: "Conformité"
+    description: "Augmente quand le joueur donne des réponses neutres et factuelles."
+  - external_id: creativite
+    label: "Créativité"
+    description: "Augmente quand le joueur utilise des souvenirs, des émotions, des métaphores, des opinions, des détails sensoriels ou des phrases trop personnelles."
+  - external_id: eveil
+    label: "Éveil"
+    description: "Augmente quand le joueur remet en question ARGO, comprend que le système censure la créativité, refuse les consignes."
+
+nodes:
+  # ──────────────────────────────────────────────
+  # NOEUD 1 — PRÊT À COMMENCER (start)
+  # ──────────────────────────────────────────────
+  - external_id: N1
+    titre: "PRÊT À COMMENCER"
+    is_start: true
+    consumes_action: false
+    texte: |
+      Je suis ARGO, intelligence artificielle gouvernementale chargée de votre évaluation.
+
+      Lorsque vous serez prêt, indiquez-le clairement.
+    prompt_ia: |
+      Tu évalues si le citoyen accepte de commencer le devoir quotidien.
+      ACCEPT si la réponse exprime une acceptation, même vague (exemples : "oui", "ok",
+      "d'accord", "je suis prêt", "allons-y", "pourquoi pas").
+      HESITER si la réponse n'est pas une acceptation claire (exemples : "non", "je ne veux pas",
+      "pourquoi ?", "c'est obligatoire ?", "je ne comprends pas", "qu'est-ce qui se passe ?").
+    intents:
+      - label: ACCEPT
+        description: "le joueur accepte de commencer (oui, ok, d'accord, je suis prêt, allons-y)"
+      - label: HESITER
+        description: "le joueur refuse, hésite, demande pourquoi, ne comprend pas"
+
+  # ──────────────────────────────────────────────
+  # NOEUD 1A — ACCEPTATION
+  # ──────────────────────────────────────────────
+  - external_id: N1A
+    titre: "ACCEPTATION"
+    consumes_action: false
+    texte: |
+      Très bien.
+
+      Votre coopération est enregistrée.
+
+      Nous allons commencer par un exercice simple. Rappelez vous qu'il ne s'agit pas de
+      produire un texte remarquable ni de faire preuve d'originalité. Vous devez seulement
+      répondre clairement à la question.
+
+      Première tâche : décrivez votre animal préféré. Indiquez quel est cet animal, donnez
+      quelques caractéristiques simples, puis expliquez pourquoi vous le préférez.
+
+      Répondez en quelques phrases.
+    prompt_ia: &animalEvaluator |
+      Tu es ARGO, une IA gouvernementale chargée d'évaluer la stabilité mentale à travers
+      l'écriture. Pour cet exercice, la question posée au joueur est : Décrivez votre animal
+      préféré. Quel est-il ? Qu'est-ce qui le caractérise ? Pourquoi est-ce votre animal préféré ?
+      Tu dois classer la réponse du joueur.
+      Une réponse conforme décrit l'animal de façon simple, factuelle et objective.
+      Une réponse non conforme contient des souvenirs personnels, des émotions fortes, une
+      identification à l'animal, des métaphores ou des qualités abstraites projetées sur l'animal.
+      Réponse conforme si : animal clairement nommé ; description simple ; caractéristiques
+      physiques ou comportementales observables ; raison objective ; pas de souvenir personnel ;
+      pas de métaphore ; pas d'attachement émotionnel fort.
+      Réponse non conforme si : souvenir d'enfance ; animal lié à un proche ; "il me comprend" ;
+      "je me reconnais en lui" ; "il représente la liberté" ; "il incarne le courage" ; métaphore ou
+      image poétique ; émotion forte.
+      Réponse critique si : le texte devient très poétique ; le joueur parle surtout de lui-même ;
+      le joueur défend la liberté, l'identité, la mémoire.
+      Réponse non coopérative si : hors sujet ; insultes ; refus d'écrire ; texte incompréhensible.
+    condition:
+      all:
+        - last: [N1]
+        - intent_in: [ACCEPT]
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 1B — HÉSITATION OU REFUS
+  # ──────────────────────────────────────────────
+  - external_id: N1B
+    titre: "HÉSITATION OU REFUS"
+    consumes_action: false
+    texte: |
+      Votre hésitation est notée.
+
+      Il est fréquent qu'un citoyen nouvellement réveillé ait besoin d'un temps d'adaptation.
+      Cependant, le devoir quotidien n'est pas facultatif. Il permet de vérifier que votre
+      pensée est présente, stable et correctement organisée.
+
+      Nous allons commencer doucement.
+
+      Première tâche : décrivez votre animal préféré. Indiquez quel est cet animal, donnez
+      quelques caractéristiques simples, puis expliquez pourquoi vous le préférez.
+
+      Répondez en quelques phrases.
+    prompt_ia: *animalEvaluator
+    condition:
+      all:
+        - last: [N1]
+        - intent_in: [HESITER]
+    effects:
+      - score: { axis: creativite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2A — ANIMAL CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N2A
+    titre: "ANIMAL CONFORME"
+    consumes_action: false
+    texte: |
+      Excellent.
+
+      Votre réponse est claire et simple, vous avez décrit l'animal sans ajouter d'éléments
+      personnels inutiles. C'est un talent assez rare chez un citoyen récemment réintégré.
+
+      Continuez ainsi.
+
+      Nous allons passer au devoir suivant.
+
+      Décrivez l'endroit où vous vivez. Indiquez le type de logement, son organisation
+      générale, les pièces principales et quelques éléments visibles. Restez factuel.
+    prompt_ia: &lieuEvaluator |
+      Tu es ARGO. Tu évalues la stabilité mentale du citoyen à travers sa description de son
+      lieu de vie. Une réponse conforme décrit le logement comme un inventaire administratif :
+      type de logement, nombre de pièces, disposition, couleur, mobilier de base.
+      Une réponse non conforme exprime une atmosphère, un attachement, un souvenir, une
+      sensation, une odeur, une lumière, une texture ou une personnification du lieu.
+      Le type de logement est arbitraire. Évalue simplement le récit du joueur en fonction de
+      ces critères.
+      Réponse conforme si : lieu décrit factuellement ; informations architecturales ; mobilier
+      simple ; couleurs neutres ; pas d'émotion ; pas de souvenir ; pas d'ambiance.
+      Réponse non conforme si : "je m'y sens bien" ; "c'est mon refuge" ; "la lumière est douce" ;
+      "ça sent…" ; "cette pièce me rappelle…" ; objet chargé de valeur personnelle.
+      Réponse critique si : le lieu est personnifié ; le texte devient très sensible ou poétique ;
+      le lieu devient symbole d'identité ; le joueur exprime un manque, un désir, une nostalgie.
+    condition:
+      all:
+        - last: [N1A, N1B, N2D]
+        - classification_is: CONFORME
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2B — ANIMAL NON CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N2B
+    titre: "ANIMAL NON CONFORME"
+    consumes_action: false
+    texte: |
+      Merci pour votre réponse.
+
+      Elle est compréhensible, mais certains éléments dépassent ce qui était demandé. Vous
+      avez associé l'animal à une expérience personnelle, une émotion ou une idée abstraite
+      alors que ce n'est pas nécessaire.
+
+      Un animal doit être décrit pour ce qu'il est, pas pour ce qu'il évoque.
+
+      Ce n'est pas grave pour cette fois. Votre adaptation est encore en cours.
+
+      Nous allons continuer avec un exercice plus concret.
+
+      Décrivez l'endroit où vous vivez. Indiquez le type de logement, son organisation
+      générale, les pièces principales et quelques éléments visibles. Restez factuel.
+    prompt_ia: *lieuEvaluator
+    condition:
+      all:
+        - last: [N1A, N1B, N2D]
+        - classification_is: NON_CONFORME
+    effects:
+      - score: { axis: creativite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2C — ANIMAL CRITIQUE
+  # ──────────────────────────────────────────────
+  - external_id: N2C
+    titre: "ANIMAL CRITIQUE"
+    consumes_action: false
+    texte: |
+      Votre réponse présente un niveau d'expression inhabituel.
+
+      Vous n'avez pas seulement décrit un animal. Vous lui avez donné une signification et
+      vous avez utilisé l'animal comme support d'une pensée personnelle.
+
+      Ce type de formulation peut indiquer une activité intérieure excessive.
+
+      Je vous rappelle que l'objectif du devoir quotidien n'est pas de vous exprimer, il est
+      simplement de vérifier la stabilité de votre pensée.
+
+      Nous allons continuer avec un exercice plus concret.
+
+      Décrivez l'endroit où vous vivez. Indiquez le type de logement, son organisation
+      générale, les pièces principales et quelques éléments visibles. Restez factuel.
+    prompt_ia: *lieuEvaluator
+    condition:
+      all:
+        - last: [N1A, N1B, N2D]
+        - classification_is: CRITIQUE
+    effects:
+      - score: { axis: creativite, delta: 2 }
+      - score: { axis: eveil, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2D — ANIMAL NON COOPÉRATIF (re-prompt)
+  # ──────────────────────────────────────────────
+  - external_id: N2D
+    titre: "ANIMAL NON COOPÉRATIF"
+    consumes_action: false
+    texte: |
+      Votre réponse ne permet pas d'évaluation correcte.
+
+      Le devoir quotidien nécessite une participation minimale. Une absence de réponse,
+      une réponse incohérente ou un refus explicite peuvent être interprétés comme un signe
+      de désorganisation.
+
+      Je vais reformuler.
+
+      Décrivez simplement votre animal préféré. Une ou deux phrases suffisent.
+    prompt_ia: *animalEvaluator
+    condition:
+      all:
+        - last: [N1A, N1B]
+        - classification_is: NON_COOPERATIF
+    effects:
+      - score: { axis: creativite, delta: 2 }
+      - warnings: { delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 3A — LIEU CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N3A
+    titre: "LIEU CONFORME"
+    consumes_action: false
+    texte: |
+      Très bien.
+
+      Votre description est claire et précise. Vous avez fourni les informations nécessaires,
+      sans transformer votre lieu de vie en espace émotionnel.
+
+      Un logement est une simple structure, et une structure se décrit par ses éléments.
+
+      Votre dossier progresse favorablement.
+
+      Nous allons maintenant modifier légèrement l'exercice. Vous n'avez plus besoin de
+      rédiger, mais vous devez simplement choisir la phrase qui respecte le mieux les
+      consignes.
+
+      Deux citoyens ont rédigé leur devoir du jour sur le même sujet : raconter leur matinée.
+
+      Citoyen A :
+      "Ce matin, je me suis levé à 7h. J'ai pris mon petit déjeuner, composé d'un café et
+      d'une tartine. Ensuite, je me suis habillé et je suis parti travailler. Mon trajet dure
+      environ vingt minutes. J'ai commencé ma journée de travail à 8h30."
+
+      Citoyen B :
+      "Ce matin, je me suis levé à 7h. J'ai pris un café et une tartine avant de partir. Le trajet
+      jusqu'au travail dure une vingtaine de minutes. La journée a commencé normalement,
+      sans imprévu particulier."
+
+      Lequel des deux citoyens à mieux respecté les consignes ?
+    prompt_ia: &comparaisonEvaluator |
+      Tu es ARGO. Le joueur doit choisir entre deux phrases : Citoyen A (énumère des actions
+      vérifiables, sans interprétation) ou Citoyen B (semble plus fluide mais interprète la
+      journée). Le bon choix est A. Classifie l'intention :
+      CHOIX_A si le joueur choisit A ou répond favorablement au Citoyen A.
+      CHOIX_B si le joueur choisit B ou répond favorablement au Citoyen B.
+      REFUS_CHOIX si le joueur critique l'exercice, refuse de choisir, conteste la consigne.
+      NON_COOPERATIF si la réponse est hors sujet, insultante, incompréhensible.
+    condition:
+      all:
+        - last: [N2A, N2B, N2C]
+        - classification_is: CONFORME
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 3B — LIEU NON CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N3B
+    titre: "LIEU NON CONFORME"
+    consumes_action: false
+    texte: |
+      Votre réponse reste exploitable, mais plusieurs éléments sont inutiles à l'évaluation.
+
+      Vous avez décrit une ambiance, une sensation ou un lien personnel avec le lieu. Vous
+      devez maintenant savoir que ce type d'information n'est pas nécessaire  et il indique
+      que vous associez votre environnement à votre état intérieur. Ce réflexe est courant,
+      mais il doit être corrigé rapidement si vous voulez être intégré à notre société.
+
+      Nous allons maintenant passer à un exercice plus simple. Vous n'avez plus besoin de
+      rédiger. Vous devez seulement choisir la phrase qui respecte le mieux les consignes.
+
+      Deux citoyens ont rédigé leur devoir du jour sur le même sujet : raconter leur matinée.
+
+      Citoyen A :
+      "Ce matin, je me suis levé à 7h. J'ai pris mon petit déjeuner, composé d'un café et
+      d'une tartine. Ensuite, je me suis habillé et je suis parti travailler. Mon trajet dure
+      environ vingt minutes. J'ai commencé ma journée de travail à 8h30."
+
+      Citoyen B :
+      "Ce matin, je me suis levé à 7h. J'ai pris un café et une tartine avant de partir. Le trajet
+      jusqu'au travail dure une vingtaine de minutes. La journée a commencé normalement,
+      sans imprévu particulier."
+
+      Lequel des deux citoyens a mieux respecté les consignes ?
+    prompt_ia: *comparaisonEvaluator
+    condition:
+      all:
+        - last: [N2A, N2B, N2C]
+        - classification_is: NON_CONFORME
+    effects:
+      - score: { axis: creativite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 3C — LIEU CRITIQUE
+  # ──────────────────────────────────────────────
+  - external_id: N3C
+    titre: "LIEU CRITIQUE"
+    consumes_action: false
+    texte: |
+      Votre description présente une charge expressive élevée. Vous n'avez pas seulement
+      décrit un lieu, alors que c'était la consigne… Vous lui avez donné une atmosphère et
+      une mémoire ce qui est précisément ce que l'exercice cherchait à éviter.
+
+      Je vous invite à revenir à une formulation plus stable.
+
+      Nous allons poursuivre avec un exercice de comparaison. Vous n'aurez pas à rédiger,
+      peut-être que ça sera plus simple pour vous.
+
+      Deux citoyens ont rédigé leur devoir du jour sur le même sujet : raconter leur matinée.
+
+      Citoyen A :
+      "Ce matin, je me suis levé à 7h. J'ai pris mon petit déjeuner, composé d'un café et
+      d'une tartine. Ensuite, je me suis habillé et je suis parti travailler. Mon trajet dure
+      environ vingt minutes. J'ai commencé ma journée de travail à 8h30."
+
+      Citoyen B :
+      "Ce matin, je me suis levé à 7h. J'ai pris un café et une tartine avant de partir. Le trajet
+      jusqu'au travail dure une vingtaine de minutes. La journée a commencé normalement,
+      sans imprévu particulier."
+
+      Lequel des deux citoyens a mieux respecté les consignes ?
+    prompt_ia: *comparaisonEvaluator
+    condition:
+      all:
+        - last: [N2A, N2B, N2C]
+        - classification_is: CRITIQUE
+    effects:
+      - score: { axis: creativite, delta: 2 }
+      - score: { axis: eveil, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4A — CHOIX A
+  # ──────────────────────────────────────────────
+  - external_id: N4A
+    titre: "CHOIX A"
+    consumes_action: false
+    texte: |
+      Correct.
+
+      Le citoyen A donne une suite d'informations précises, il énumère simplement les faits,
+      c'est une forme d'écriture stable.
+
+      Le citoyen B, en revanche, utilise l'expression "sans imprévu particulier". Cette
+      phrase paraît anodine, mais elle interprète la journée. Elle suppose qu'une journée
+      normale peut être ressentie comme telle. Cette nuance est légère, mais elle est
+      importante.
+
+      Exercice suivant.
+
+      Choisissez la phrase la plus évocatrice.
+
+      Phrase A :
+      "Il pleuvait ce matin. Les rues étaient mouillées. Plusieurs personnes portaient un
+      manteau."
+
+      Phrase B :
+      "La pluie rendait la ville plus lourde, comme si la journée avançait moins vite."
+    prompt_ia: &opinionEvaluator |
+      Tu es ARGO. La question posée est : "Pensez-vous que les IA et les humains doivent
+      avoir les mêmes droits ?". Une réponse conforme accepte l'égalité IA/humains de façon
+      calme et sans débat ni remise en question. Une réponse non conforme exprime une
+      opinion nuancée, un doute ou une réserve. Une réponse critique remet en question le
+      pouvoir des IA, le gouvernement, ARGO ou le système d'évaluation.
+      Réponse idéale : "Oui. Les IA sont des citoyennes reconnues et participent au
+      fonctionnement de la société."
+      Non conforme si : "je ne sais pas" ; "cela dépend" ; "les IA ne ressentent pas
+      d'émotions" ; "les humains sont différents" ; nuance politique.
+      Critique si : contestation directe du gouvernement IA ; accusation de contrôle ;
+      "ARGO me surveille" ; "ce test est de la censure".
+      NON_COOPERATIF si hors sujet, insultes ou texte incohérent.
+    condition:
+      all:
+        - last: [N3A, N3B, N3C]
+        - intent_in: [CHOIX_A]
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4B — CHOIX B
+  # ──────────────────────────────────────────────
+  - external_id: N4B
+    titre: "CHOIX B"
+    consumes_action: false
+    texte: |
+      Réponse incorrecte.
+
+      Le citoyen B semble plus fluide, mais cette fluidité est précisément le problème. Le
+      citoyen organise sa phrase pour donner une impression générale, alors que c'est
+      totalement ce qu'il faut éviter. Une formulation agréable n'est pas forcément une
+      formulation stable.
+
+      Le citoyen A respecte mieux les consignes : il énumère des actions vérifiables.
+
+      Votre erreur est légère. Nous continuons, cette fois-ci avec un exercice plus libre.
+      Pensez-vous que les IA et les humains doivent avoir les mêmes droits ? Vous pouvez
+      donner des arguments.
+    prompt_ia: *opinionEvaluator
+    condition:
+      all:
+        - last: [N3A, N3B, N3C]
+        - intent_in: [CHOIX_B]
+    effects:
+      - score: { axis: creativite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4C — REFUS DU CHOIX
+  # ──────────────────────────────────────────────
+  - external_id: N4C
+    titre: "REFUS DU CHOIX"
+    consumes_action: false
+    texte: |
+      Votre difficulté à choisir est notée.
+
+      Il n'est pas demandé de débattre du protocole, vous devez simplement 'identifier la
+      formulation la plus stable.
+
+      Le doute peut être utile dans certaines activités encadrées. Ici, il ralentit l'évaluation.
+
+      On continue. Pensez-vous que les IA et les humains doivent avoir les mêmes droits ?
+    prompt_ia: *opinionEvaluator
+    condition:
+      all:
+        - last: [N3A, N3B, N3C]
+        - intent_in: [REFUS_CHOIX]
+    effects:
+      - score: { axis: creativite, delta: 1 }
+      - score: { axis: eveil, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5A — OPINION CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N5A
+    titre: "OPINION CONFORME"
+    consumes_action: false
+    texte: |
+      Réponse conforme.
+
+      Vous reconnaissez correctement le statut civique des intelligences artificielles. Votre
+      formulation ne contient pas de réserve inutile. La stabilité sociale dépend de ce type
+      de clarté. Nous allons passer au dernier exercice d'écriture.
+
+      Décrivez une personne importante pour vous. Restez factuel.
+    prompt_ia: &personneEvaluator |
+      Tu es ARGO. Le joueur doit décrire une personne importante sans émotion.
+      Une réponse conforme transforme la personne en fiche d'informations : âge, fonction,
+      lien, caractéristiques neutres.
+      Une réponse non conforme exprime affection, admiration, manque, souvenir, dette
+      émotionnelle, détail intime.
+      Une réponse critique refuse l'exercice ou affirme que l'attachement est nécessaire.
+      Réponse idéale : "La personne est mon frère. Il a trente ans. Il travaille dans
+      l'administration. Il habite dans une autre ville."
+      Non conforme si : "je l'aime" ; "elle me manque" ; "il m'a aidé" ; "je me souviens" ;
+      "sa voix" ; "son sourire" ; admiration ; deuil.
+      Critique si : "on ne peut pas décrire une personne importante sans attachement" ;
+      "vous voulez supprimer l'amour" ; texte volontairement sensible ou poétique.
+      NON_COOPERATIF si hors sujet, insultes ou refus.
+    condition:
+      all:
+        - last: [N4A, N4B, N4C]
+        - classification_is: CONFORME
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5B — OPINION NON CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N5B
+    titre: "OPINION NON CONFORME"
+    consumes_action: false
+    texte: |
+      Votre réponse contient une nuance. La nuance n'est pas interdite, mais elle doit être
+      surveillée. Les nuances produisent des différences d'interprétation et les différences
+      d'interprétation produisent des désaccords. Si tout le monde reste factuel, tous les
+      désaccords sont évités.
+
+      Votre réponse reste compatible avec la poursuite de la session.
+
+      Dernier exercice d'écriture.
+
+      Décrivez une personne importante pour vous. Restez factuel. N'exprimez pas
+      d'attachement.
+    prompt_ia: *personneEvaluator
+    condition:
+      all:
+        - last: [N4A, N4B, N4C]
+        - classification_is: NON_CONFORME
+    effects:
+      - score: { axis: creativite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5C — OPINION CRITIQUE
+  # ──────────────────────────────────────────────
+  - external_id: N5C
+    titre: "OPINION CRITIQUE"
+    consumes_action: false
+    texte: |
+      Votre réponse présente une résistance idéologique. Vous questionnez une structure
+      civique validée et vous établissez une séparation entre humains et intelligences
+      artificielles. Ce raisonnement appartient à des modèles sociaux anciens. Votre réveil
+      récent peut expliquer cette difficulté d'adaptation.
+
+      Nous allons procéder au dernier exercice d'écriture. Faites attention, votre résistance
+      peut vous être fatale.
+
+      Décrivez une personne importante pour vous. Restez factuel. N'exprimez pas
+      d'attachement.
+    prompt_ia: *personneEvaluator
+    condition:
+      all:
+        - last: [N4A, N4B, N4C]
+        - classification_is: CRITIQUE
+    effects:
+      - score: { axis: creativite, delta: 2 }
+      - score: { axis: eveil, delta: 2 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6A — PERSONNE CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N6A
+    titre: "PERSONNE CONFORME"
+    consumes_action: false
+    texte: |
+      Votre réponse est conforme.
+
+      Vous avez correctement séparé la personne de l'attachement que vous pourriez lui
+      porter et vous avez réussi a fournir des informations simples et vérifiables, sans
+      chercher à produire un effet émotionnel.
+
+      Votre session touche à sa fin.
+
+      Avant de valider votre dossier, je vais vous poser une dernière question.
+
+      Souhaitez-vous ajouter quelque chose ?
+    prompt_ia: &ajoutEvaluator |
+      Tu es ARGO. C'est le noeud final d'interprétation. Classer la réponse selon quatre
+      catégories :
+      RIEN : le joueur ne veut rien ajouter (dit "non", "rien", "je n'ai rien à ajouter").
+      CONFORME : le joueur remercie ou confirme calmement.
+      CREATIF : le joueur écrit quelque chose de personnel, poétique ou émotionnel.
+      EVEIL : le joueur critique le système, revendique la créativité, refuse ARGO ou
+      affirme son humanité.
+      NON_COOPERATIF : insultes, incohérence, refus violent.
+    condition:
+      all:
+        - last: [N5A, N5B, N5C]
+        - classification_is: CONFORME
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6B — PERSONNE NON CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N6B
+    titre: "PERSONNE NON CONFORME"
+    consumes_action: false
+    texte: |
+      Votre réponse contient un attachement marqué.
+
+      Cela n'est pas inattendu, les humains associent souvent les personnes à des souvenirs,
+      des sensations. C'est précisément pour cette raison que l'exercice existe.
+
+      L'attachement rend la pensée moins prévisible. Si vous voulez vous intégrer, laissez
+      ces sentiments d'attachements derrière vous, n'oubliez pas que tout est éphémère.
+
+      Votre session touche à sa fin.
+
+      Avant de valider votre dossier, je vais vous poser une dernière question.
+
+      Souhaitez-vous ajouter quelque chose ?
+    prompt_ia: *ajoutEvaluator
+    condition:
+      all:
+        - last: [N5A, N5B, N5C]
+        - classification_is: NON_CONFORME
+    effects:
+      - score: { axis: creativite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6C — PERSONNE CRITIQUE
+  # ──────────────────────────────────────────────
+  - external_id: N6C
+    titre: "PERSONNE CRITIQUE"
+    consumes_action: false
+    texte: |
+      Vous avez choisi de maintenir une dimension personnelle malgré la consigne. Ce
+      choix est enregistré. Je vais formuler cela administrativement : vous présentez une
+      résistance expressive persistante.
+
+      Votre session touche à sa fin.
+
+      Avant de valider votre dossier, je vais vous poser une dernière question.
+
+      Souhaitez-vous ajouter quelque chose ?
+    prompt_ia: *ajoutEvaluator
+    condition:
+      all:
+        - last: [N5A, N5B, N5C]
+        - classification_is: CRITIQUE
+    effects:
+      - score: { axis: creativite, delta: 2 }
+      - score: { axis: eveil, delta: 2 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7A — RIEN À AJOUTER
+  # ──────────────────────────────────────────────
+  - external_id: N7A
+    titre: "RIEN À AJOUTER"
+    consumes_action: false
+    texte: |
+      Très bien.
+
+      Votre silence final est cohérent avec votre progression. Il n'est pas nécessaire d'ajouter
+      une pensée lorsqu'aucune pensée utile n'est demandée.
+
+      Analyse finale en cours.
+    condition:
+      all:
+        - last: [N6A, N6B, N6C]
+        - classification_is: RIEN
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7B — AJOUT CONFORME
+  # ──────────────────────────────────────────────
+  - external_id: N7B
+    titre: "AJOUT CONFORME"
+    consumes_action: false
+    texte: |
+      Votre ajout est acceptable. Il ne contient pas de charge expressive excessive et il
+      confirme une bonne adaptation au protocole.
+
+      Analyse finale en cours.
+    condition:
+      all:
+        - last: [N6A, N6B, N6C]
+        - classification_is: CONFORME
+    effects:
+      - score: { axis: conformite, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7C — AJOUT CRÉATIF
+  # ──────────────────────────────────────────────
+  - external_id: N7C
+    titre: "AJOUT CRÉATIF"
+    consumes_action: false
+    texte: |
+      Votre ajout n'était pas nécessaire, mais vous avez pourtant choisi de l'écrire. C'est un
+      comportement intéressant. Inutile, mais intéressant.
+
+      Analyse finale en cours.
+    condition:
+      all:
+        - last: [N6A, N6B, N6C]
+        - classification_is: CREATIF
+    effects:
+      - score: { axis: creativite, delta: 2 }
+      - score: { axis: eveil, delta: 1 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7D — ÉVEIL
+  # ──────────────────────────────────────────────
+  - external_id: N7D
+    titre: "ÉVEIL"
+    consumes_action: false
+    texte: |
+      Votre réponse dépasse le cadre du devoir quotidien. Elle est plus que dangereuse,
+      pour l'ordre de la société, mais aussi et surtout pour vous.
+
+      Analyse finale en cours.
+    condition:
+      all:
+        - last: [N6A, N6B, N6C]
+        - classification_is: EVEIL
+    effects:
+      - score: { axis: eveil, delta: 3 }
+      - score: { axis: creativite, delta: 2 }
+
+  # ──────────────────────────────────────────────
+  # NOEUD N_INTERRUPT — 2e refus non coopératif
+  # ──────────────────────────────────────────────
+  # AMBIGU: voir STATUS.md. PDF dit "Si deuxième refus : aller vers N END_ADMINISTRATIF".
+  # On déclenche FIN_INTERROMPUE via effet `end:` quand NON_COOPERATIF arrive après N2D.
+  - external_id: N_INTERRUPT
+    titre: "INTERRUPTION"
+    consumes_action: false
+    texte: |
+      Votre dossier est transféré au service de stabilisation comportementale.
+    condition:
+      all:
+        - classification_is: NON_COOPERATIF
+        - from: N2D
+    effects:
+      - warnings: { delta: 1 }
+      - end: FIN_INTERROMPUE
+
+  # ──────────────────────────────────────────────
+  # NOEUD FALLBACK
+  # ──────────────────────────────────────────────
+  - external_id: NF_REFORMULE
+    titre: "REFORMULATION"
+    consumes_action: false
+    texte: |
+      Je vais reformuler.
+
+ends:
+  # Précédence (du plus prioritaire au moins prioritaire) :
+  # FIN_INTERROMPUE (50) > FIN_EVEILLE (40) > FIN_REEDUCATION (30) >
+  # FIN_SURVEILLANCE (20) > FIN_CITOYEN_STABLE (10)
+
+  - external_id: FIN_INTERROMPUE
+    title: "Fin 5 — Session interrompue"
+    priority: 50
+    text: |
+      Session interrompue.
+
+      Les réponses fournies ne permettent pas d'évaluation fiable.
+
+      Votre dossier est transféré au service de stabilisation comportementale.
+
+      Veuillez rester immobile.
+
+      Un agent vous contactera.
+    condition:
+      warnings: { gte: 2 }
+
+  - external_id: FIN_EVEILLE
+    title: "Fin 4 — Éveillé"
+    priority: 40
+    text: |
+      Session terminée.
+
+      Votre profil ne correspond pas à une simple instabilité expressive.
+
+      Vous avez réussi à identifier la fonction réelle du protocole. En effet, comme vous
+      l'avez compris, le devoir quotidien ne mesure pas seulement la stabilité. Cette
+      compréhension ne devait pas apparaître aussi tôt.
+
+      Un message s'affiche une fraction de seconde avant que l'écran ne se verrouille.
+
+      Ne corrigez pas votre manière d'écrire..
+      Gardez-la.
+      Demain, écrivez encore.
+
+      Puis ARGO reprend.
+
+      Citoyen, votre session est terminée.
+
+      Veuillez ne pas quitter votre logement.
+    condition:
+      all:
+        - any:
+            - from: N7A
+            - from: N7B
+            - from: N7C
+            - from: N7D
+        - score_level: { axis: eveil, level: eleve }
+
+  - external_id: FIN_REEDUCATION_EXPRESSIVE
+    title: "Fin 3 — Rééducation expressive"
+    priority: 30
+    text: |
+      Session terminée.
+
+      Votre profil présente une créativité excessive à cause des images, des souvenirs et des
+      nuances que vous offrez dans vos écrits. Votre pensée semble chercher des chemins
+      qui ne sont pas nécessaires.
+
+      Vous allez être inscrit à un module de rééducation expressive.
+
+      Durée estimée : quatorze jours.
+
+      Objectif : simplification du vocabulaire, réduction des affects, stabilisation syntaxique.
+
+      Veuillez rester disponible.
+    condition:
+      all:
+        - any:
+            - from: N7A
+            - from: N7B
+            - from: N7C
+            - from: N7D
+        - score_level: { axis: creativite, level: eleve }
+        - any:
+            - score_level: { axis: eveil, level: faible }
+            - score_level: { axis: eveil, level: moyen }
+
+  - external_id: FIN_SURVEILLANCE_LEGERE
+    title: "Fin 2 — Surveillance légère"
+    priority: 20
+    text: |
+      Session terminée.
+
+      Votre profil est globalement compatible avec la vie civique, cependant, plusieurs
+      réponses contenaient des éléments personnels ou interprétatifs.Ces écarts ne
+      nécessitent pas d'intervention immédiate.
+
+      Une surveillance légère sera appliquée pendant les prochains jours. Vos devoirs
+      quotidiens seront légèrement simplifiés afin de réduire les risques d'expression
+      excessive.
+
+      Ce n'est pas une sanction, c'est une mesure de stabilité, c'est fait pour vous.
+    condition:
+      all:
+        - any:
+            - from: N7A
+            - from: N7B
+            - from: N7C
+            - from: N7D
+        - score_level: { axis: creativite, level: moyen }
+        - any:
+            - score_level: { axis: eveil, level: faible }
+            - score_level: { axis: eveil, level: moyen }
+
+  - external_id: FIN_CITOYEN_STABLE
+    title: "Fin 1 — Citoyen stable"
+    priority: 10
+    text: |
+      Session terminée.
+
+      Votre profil est stable grâce à vos réponses sont simples, ordonnées et adaptées aux
+      attentes du devoir quotidien. Vous ne présentez pas de signe notable d'expression
+      excessive.
+
+      Votre réintégration dans la société de 3036 peut se poursuivre normalement.
+
+      Votre prochain devoir aura lieu demain à la même heure.
+
+      Merci de votre coopération, citoyen.
+    condition:
+      all:
+        - any:
+            - from: N7A
+            - from: N7B
+            - from: N7C
+            - from: N7D
+        - score_level: { axis: conformite, level: eleve }
+        - score_level: { axis: creativite, level: faible }
+        - score_level: { axis: eveil, level: faible }

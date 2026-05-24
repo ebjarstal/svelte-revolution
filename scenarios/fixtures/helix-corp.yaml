@@ -1,0 +1,1581 @@
+# Fixture Helix Corp — transcrit littéralement depuis scenarios/Scenario 2-Helix Corp.pdf
+# Format : cf. docs/narrative-engine-design.md §10.2
+
+scenario:
+  external_id: helix_corp
+  title: "Helix Corp"
+  lang: fr-FR
+  engine: scripted
+  prologue: |
+    Helix Corp est partout. Ce sont eux qui financent les stations, qui gèrent les routes
+    commerciales et qui exploitent les ressources dès qu'une nouvelle planète devient
+    intéressante. Tu ne connais pas tous les détails, mais tu sais une chose : quand Helix envoie
+    un équipage quelque part, ce n'est jamais pour rien.
+
+    Ça fait trois ans que tu travailles pour eux. Trois ans de missions qui finissent par toutes se
+    ressembler : du transport, des inspections et de la maintenance, en boucle. Tu fais ton travail,
+    sans te poser de questions.
+
+    Cette mission devait être simple et rapide. Quatre jours de trajet jusqu'à Kepler-9, une
+    vérification de routine, puis retour sur Terre. Cependant, quelques semaines avant le départ,
+    des sondes ont détecté un gisement d'Irisite sur la planète. L'Irisite est un minerai rare, très
+    recherché. Depuis cette découverte, l'ambiance au sein d'Helix Corp à changée. Personne
+    n'en parle vraiment, mais ça se voit que ce voyage n'est plus une simple inspection.
+
+    Le début de la mission s'est bien passée, malgré les quelques tensions au sein de l'équipage.
+
+    Tu t'es endormi normalement à la fin du troisième jour.
+
+    À 03:12, l'alarme te réveille.
+
+rules:
+  initial_actions: 18
+  score_caps: {}
+  score_thresholds:
+    faible: "<33%"
+    moyen: "33-66%"
+    eleve: ">66%"
+  fallback_node: NF_HESITE
+  end_eval_after: null
+
+characters:
+  - external_id: nolan
+    name: "Nolan Reyes"
+    role: "PILOTAGE"
+  - external_id: elina
+    name: "Dr Elina Voss"
+    role: "SCIENCE / MISSION KEPLER-9"
+  - external_id: arman
+    name: "Arman Delaunay"
+    role: "MÉDICAL / BIO-SÉCURITÉ"
+  - external_id: kira
+    name: "Kira Solis"
+    role: "SÉCURITÉ HELIX"
+
+evidences:
+  - external_id: P1_SABOTAGE_CONFIRME
+    label: "Sabotage confirmé"
+    description: "La correction automatique de trajectoire a été désactivée manuellement."
+  - external_id: P2_ACCES_0307
+    label: "Accès manuel à 03:07"
+    description: "Quelqu'un avec un identifiant masqué et un niveau d'autorisation élevé a accédé au système de navigation à 03:07."
+  - external_id: P3_LOGS_EFFACES
+    label: "Logs effacés"
+    description: "Plusieurs lignes ont été manuellement effacées juste après l'accès 03:07."
+  - external_id: P4_AUTORISATION_MULTIPLE
+    label: "Autorisation multiple requise"
+    description: "Le déverrouillage exige au moins deux niveaux d'accès : navigation + sécurité."
+  - external_id: P5_ACCES_EQUIPAGE
+    label: "Accès de l'équipage"
+    description: "Pilote = technique, Scientifique = mission, Médecin = bio-sécurité, Agent Helix = sécurité."
+  - external_id: P6_DIRECTIVE_HELIX
+    label: "Directive HLX-K9"
+    description: "PRIORITÉ ABSOLUE - CONTRÔLE DE L'INFORMATION."
+  - external_id: P7_PILOTE_REVEILLE
+    label: "Pilote réveillé à 03:07"
+    description: "Nolan était réveillé et est allé au pont vers 03:07."
+  - external_id: P8_IRISITE_DANGEREUSE
+    label: "Irisite dangereuse"
+    description: "Helix savait qu'il y avait un risque biologique lié à l'Irisite mais a envoyé l'équipage."
+  - external_id: P9_SYMPTOMES_EQUIPAGE
+    label: "Symptômes équipage"
+    description: "Micro-tremblements, troubles du sommeil, pics de stress dans l'équipage depuis l'approche de Kepler-9."
+  - external_id: P10_KIRA_A_ACCES_SUPERIEUR
+    label: "Kira a accès supérieur"
+    description: "Un seul profil possède le niveau d'accès prioritaire requis : Kira Solis."
+
+state_axes: []   # Helix n'utilise pas d'axes de score gradués
+
+nodes:
+  # ──────────────────────────────────────────────
+  # NOEUD 1 — RÉVEIL (start)
+  # ──────────────────────────────────────────────
+  - external_id: N1
+    titre: "RÉVEIL"
+    is_start: true
+    consumes_action: true
+    texte: |
+      Tu es réveillé par le bruit strident d'une alarme et d'une lumière rouge qui clignote dans la
+      cabine. Une voix automatique, robotique, répète en boucle qu'il y a une défaillance critique
+      du système de navigation et que le vaisseau se dirige vers une zone de débris. L'impact est
+      prévu dans deux heures.
+
+      Puis la voix s'interrompt.
+
+      Un silence total suit, quelques secondes passent, le temps semble être figé : Aucun
+      mouvement dans la cabine, et rien ne redémarre. Le système est actif, mais il ne fait plus rien.
+      Il attend une entrée.
+
+      Tu peux essayer de comprendre ce qui se passe, vérifier les systèmes, sortir de la cabine ou
+      simplement observer ce qui t'entoure.
+    prompt_ia: "déclencher si le joueur exprime une intention initiale : comprendre, agir sur le système, parler à l'équipage, ou observer passivement."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur veut comprendre ce qui se passe"
+      - label: SYSTEME
+        description: "le joueur veut interagir avec le terminal, le système, la navigation"
+      - label: EQUIPAGE
+        description: "le joueur veut chercher ou parler à l'équipage"
+      - label: OBSERVER
+        description: "le joueur reste passif, observe, attend"
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2 — TERMINAL PRINCIPAL
+  # ──────────────────────────────────────────────
+  - external_id: N2
+    titre: "TERMINAL PRINCIPAL"
+    consumes_action: true
+    texte: |
+      Le terminal mural s'allume lentement. L'interface répond avec du retard. Plusieurs fenêtres
+      s'ouvrent en même temps, certaines incomplètes, d'autres bloquées sur des messages
+      d'erreur. La seuel chose visible sur ce terminal est le compte à rebours vers l'impact, les
+      secondes défilent lentement sous tes yeux. La trajectoire du vaisseau continue de se modifier,
+      Kepler-9 semble s'éloigner de plus en plus, mais aucune correction automatique de trajectoire
+      ne se lance.
+
+      Quelque chose ne colle pas. Une panne classique aurait laissé des traces, alors que là, on
+      dirait que cette panne a été prévue ou même contrôlée.
+
+      Tu peux consulter l'état du vaisseau, fouiller les logs, tenter de réparer la navigation ou
+      chercher qui avait accès au système.
+    prompt_ia: "déclencher si le joueur parle du terminal, du système, des erreurs, de la navigation, de l'état du vaisseau ou d'une tentative de réparation, uniquement après le Noeud 1."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande l'état général, ce qui se passe"
+      - label: SYSTEME
+        description: "le joueur parle du terminal, du système, navigation, réparation"
+      - label: LOGS
+        description: "le joueur demande les logs, l'historique, les accès récents"
+      - label: ACCES
+        description: "le joueur cherche qui avait accès, qui pouvait faire ça"
+    condition:
+      all:
+        - from: N1
+        - intent_in: [COMPRENDRE, SYSTEME]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2.1 — ÉTAT DU VAISSEAU
+  # ──────────────────────────────────────────────
+  - external_id: N2.1
+    titre: "ÉTAT DU VAISSEAU"
+    consumes_action: true
+    texte: |
+      Les moteurs fonctionnent encore mais le système affiche un résumé incomplet.
+      L'alimentation électrique semble être stable et les communications internes sont encore
+      actives. Il ne semble pas avoir eu d'incidents comme une explosion, une collision, ou
+      n'importe quelle panne matérielle majeure. Le seul problème notable est celui de la
+      navigation.
+
+      En effet, les corrections automatiques de trajectoire ont été désactivées. Le vaisseau ne
+      cherche plus à reprendre sa trajectoire et à se diriger vers Kepler-9. Il continue simplement à
+      dériver.
+
+      Le terminal affiche une ligne qui confirme les soupçons :
+
+      CORRECTION AUTOMATIQUE : DÉSACTIVÉE MANUELLEMENT
+
+      Ce n'est pas une panne. Quelqu'un a volontairement empêché le vaisseau de se corriger.
+    prompt_ia: "déclencher si le joueur demande l'état général, le statut du vaisseau, ce qui se passe, ou pourquoi l'impact est prévu... Uniquement après le N2."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande l'état du vaisseau, le statut général"
+    condition:
+      all:
+        - from: N2
+        - intent_in: [COMPRENDRE]
+    effects:
+      - unlock: P1_SABOTAGE_CONFIRME
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2.2 — LOGS SYSTÈME
+  # ──────────────────────────────────────────────
+  - external_id: N2.2
+    titre: "LOGS SYSTÈME"
+    consumes_action: true
+    texte: |
+      Les logs mettent plusieurs secondes à charger. Certaines lignes apparaissent normalement,
+      mais d'autres sont remplacées par des blocs vides ou des caractères illisibles.
+
+      Tu remontes l'historique jusqu'au moment de la défaillance.
+
+      Une entrée ressort :
+
+      03:07 - ACCÈS MANUEL AU SYSTÈME DE NAVIGATION
+      UTILISATEUR : MASQUÉ
+      NIVEAU D'AUTORISATION : ÉLEVÉ
+
+      Juste après, plusieurs lignes ont été effacées. Elles n'ont pas été corrompues, elles ont bien
+      été manuellement effacées. Quelqu'un a accédé au système 5 minutes avant l'alarme, et
+      quelqu'un (la même personne ?) a supprimé les logs associés.
+    prompt_ia: "déclencher si le joueur demande les logs, l'historique, les accès récents, les traces système ou les actions avant l'alarme, uniquement après N2 ou N2.1."
+    intents:
+      - label: LOGS
+        description: "le joueur demande les logs, l'historique, les traces"
+    condition:
+      all:
+        - from: N2
+        - intent_in: [LOGS]
+    effects:
+      - unlock: P2_ACCES_0307
+      - unlock: P3_LOGS_EFFACES
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2.3 — TENTATIVE DE RÉPARATION
+  # ──────────────────────────────────────────────
+  - external_id: N2.3
+    titre: "TENTATIVE DE RÉPARATION"
+    consumes_action: true
+    texte: |
+      Tu lances une procédure de restauration. Le terminal accepte d'abord la commande, puis la
+      bloque presque aussitôt.
+
+      RESTAURATION REFUSÉE
+      AUTORISATION MULTIPLE REQUISE
+
+      Tu recommences avec ton identifiant de maintenance que tu as grâce à ton statut de
+      technicien. Malheureusement, cela ne fonctionne pas non plus.
+
+      Le verrouillage a été activé après la modification de trajectoire. Celui qui a saboté le système
+      a aussi empêché une réparation simple.
+
+      Le message final reste affiché :
+
+      VALIDATION REQUISE : NAVIGATION + SÉCURITÉ
+
+      Il faut au moins deux niveaux d'accès pour annuler le verrouillage.
+    prompt_ia: "déclencher si le joueur tente de reprendre le contrôle, réparer, redémarrer, corriger la trajectoire ou relancer la navigation. Uniquement après N2."
+    intents:
+      - label: REPARER
+        description: "le joueur tente de réparer, relancer, corriger, restaurer"
+    condition:
+      all:
+        - from: N2
+        - intent_in: [REPARER]
+    effects:
+      - unlock: P4_AUTORISATION_MULTIPLE
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2.4 — LISTE DES ACCÈS
+  # ──────────────────────────────────────────────
+  - external_id: N2.4
+    titre: "LISTE DES ACCÈS"
+    consumes_action: true
+    texte: |
+      Le terminal affiche la liste des profils autorisés à intervenir sur la navigation en situation
+      critique.
+
+      NOLAN REYES - PILOTAGE
+      DR ELINA VOSS - SCIENCE / MISSION KEPLER-9
+      ARMAN DELAUNAY - MÉDICAL / BIO-SÉCURITÉ
+      KIRA SOLIS - SÉCURITÉ HELIX
+
+      Le pilote a l'accès technique. La scientifique a l'accès mission. Le médecin a l'accès
+      bio-sécurité. L'agent Helix a l'accès sécurité.
+    prompt_ia: "déclencher si le joueur cherche qui avait les droits, qui pouvait accéder au système, qui pouvait modifier la navigation."
+    intents:
+      - label: ACCES
+        description: "le joueur cherche qui avait les droits, qui pouvait accéder au système"
+    condition:
+      all:
+        - from: N2
+        - intent_in: [ACCES]
+    effects:
+      - unlock: P5_ACCES_EQUIPAGE
+
+  # ──────────────────────────────────────────────
+  # NOEUD 2.5 — ACCÈS SUPÉRIEUR
+  # ──────────────────────────────────────────────
+  - external_id: N2.5
+    titre: "ACCÈS SUPÉRIEUR"
+    consumes_action: true
+    texte: |
+      Tu compares les niveaux d'accès. Les trois premiers profils peuvent modifier certains
+      paramètres, mais pas masquer un identifiant dans les logs principaux.
+
+      Un seul profil possède un niveau supérieur :
+
+      KIRA SOLIS - SÉCURITÉ HELIX - ACCÈS PRIORITAIRE
+
+      Le terminal ne dit pas qu'elle a saboté le système. Mais il confirme une chose : si quelqu'un
+      pouvait effacer les traces proprement, c'était elle.
+    prompt_ia: "déclencher si le joueur cherche quel profil peut masquer un identifiant, effacer des logs ou contourner des autorisations."
+    intents:
+      - label: ACCES_SUPERIEUR
+        description: "accès élevé, protocole Helix, autorisation supérieure, masquer identifiant, effacer logs"
+    condition:
+      all:
+        - from: N2.4
+        - intent_in: [ACCES_SUPERIEUR]
+    effects:
+      - unlock: P10_KIRA_A_ACCES_SUPERIEUR
+
+  # ──────────────────────────────────────────────
+  # NOEUD 3 — EQUIPAGE (hub PNJ)
+  # ──────────────────────────────────────────────
+  - external_id: N3
+    titre: "EQUIPAGE"
+    consumes_action: true
+    texte: |
+      La porte de ta cabine s'ouvre sur le couloir principal. L'éclairage d'urgence donne à tout le
+      couloir une couleur rouge uniforme, presque effrayante.
+
+      Plusieurs portes sont ouvertes, ce qui n'est pas normal à cette heure… Il semblerait que tout
+      le monde ait été réveillé par cette alarme.
+
+      Le pilote est près de l'accès au pont. La scientifique est un peu en retrait avec sa tablette. Le
+      médecin se tient près de l'infirmerie. L'agent Helix est déjà dans le couloir, elle est immobile
+      et semble assez inquiète, mais que ce soit elle ou les autres membres de l'équipage, personne
+      ne panique. Ce calme est pesant, on dirait que tu es la seule personne qui se soucie de
+      l'impact imminent.
+
+      Tu peux parler à quelqu'un directement, poser une question à tout le monde ou observer leurs
+      réactions.
+    prompt_ia: "déclencher si le joueur cherche les autres, parler à l'équipage ou rejoindre quelqu'un."
+    intents:
+      - label: EQUIPAGE
+        description: "le joueur veut parler à l'équipage, voir les autres, sortir de sa cabine"
+      - label: INTERROGER
+        description: "le joueur pose une question générale à l'équipage"
+      - label: OBSERVER
+        description: "le joueur observe l'équipage sans parler"
+      - label: NOLAN
+        description: "le joueur veut parler au pilote, à Nolan"
+      - label: ELINA
+        description: "le joueur veut parler à la scientifique, à Elina"
+      - label: ARMAN
+        description: "le joueur veut parler au médecin, à Arman"
+      - label: KIRA
+        description: "le joueur veut parler à l'agent Helix, à Kira, à la sécurité"
+    condition:
+      any:
+        - all:
+            - from: N1
+            - intent_in: [EQUIPAGE]
+        - all:
+            - from: N2
+            - intent_in: [EQUIPAGE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 3.1 — QUESTION À TOUT LE MONDE
+  # ──────────────────────────────────────────────
+  - external_id: N3.1
+    titre: "QUESTION À TOUT LE MONDE"
+    consumes_action: true
+    texte: |
+      Tu poses la question à voix haute.
+
+      Un silence suit. Personne ne se précipite pour répondre.
+
+      Nolan, le pilote, parle en premier.
+
+      "Le système a lâché."
+
+      Elina, la scientifique, le corrige aussitôt, sans lever les yeux de sa tablette.
+
+      "Non. Il a été modifié."
+
+      Le médecin regarde l'un puis l'autre. Kira Solis ne dit rien.
+    prompt_ia: "déclencher si le joueur pose une question générale à l'équipage : 'quelqu'un sait ?', 'qu'est-ce qui se passe ?', 'qui a fait ça ?'."
+    intents:
+      - label: INTERROGER
+        description: "le joueur pose une question générale à tout l'équipage, sans cible précise"
+    condition:
+      all:
+        - from: N3
+        - intent_in: [INTERROGER]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 3.2 — OBSERVER L'ÉQUIPAGE
+  # ──────────────────────────────────────────────
+  - external_id: N3.2
+    titre: "OBSERVER L'ÉQUIPAGE"
+    consumes_action: true
+    texte: |
+      Tu ne dis rien tout de suite. Tu regardes. Nolan garde les mains près de lui, comme s'il se
+      retenait de toucher encore à la console. Il est nerveux. Elina semble concentrée. Elle lit des
+      données que personne d'autre ne regarde. Arman observe les visages plutôt que les écrans. Il
+      cherche quelque chose chez les autres. Kira, elle, ne regarde ni le terminal ni les portes. Elle
+      te regarde toi.
+
+      La peur n'est pas l'émotion principale qui émane de la situation, il semblerait que ce soit la
+      méfiance.
+    prompt_ia: "déclencher si le joueur observe le couloir, les comportements, les gestes, les regards ou l'ambiance."
+    intents:
+      - label: OBSERVER
+        description: "le joueur observe l'équipage, les gestes, les regards, l'ambiance"
+    condition:
+      all:
+        - from: N3
+        - intent_in: [OBSERVER]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4 — PREMIER CONTACT NOLAN
+  # ──────────────────────────────────────────────
+  - external_id: N4
+    titre: "PREMIER CONTACT NOLAN"
+    consumes_action: true
+    texte: |
+      Nolan est devant la console de navigation, même si elle ne répond plus. Il ne tape rien,
+      n'essaye pas de réparer cette console. Il est simplement immobile devant cette dernière et la
+      fixe, comme si il n'arrivait pas à croire ce qui était en train d'arriver.
+
+      Quand tu arrives, il tourne à peine la tête.
+
+      "Si t'es venu me dire que c'est ma faute, gagne du temps et dis-le directement."
+
+      Sa voix est sèche, mais elle tremble un peu.
+
+      Tu peux lui demander ce qu'il sait, pourquoi il est nerveux, s'il était réveillé à 03:07, ou le
+      confronter avec les logs.
+    prompt_ia: "déclencher si le joueur s'adresse au pilote, à Nolan, ou parle de navigation avec lui."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande ce que Nolan sait, ce qui s'est passé"
+      - label: MENTIONNE_0307
+        description: "le joueur mentionne 03:07, les logs, l'accès manuel"
+      - label: PRESSION
+        description: "le joueur met la pression, accuse de mentir"
+      - label: ACCES_PILOTE
+        description: "le joueur demande quel accès Nolan a au système"
+      - label: SUSPECTER
+        description: "le joueur suspecte ou accuse Nolan"
+    condition:
+      all:
+        - from: N3
+        - target: nolan
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4.1 — NOLAN EXPLIQUE LA PANNE
+  # ──────────────────────────────────────────────
+  - external_id: N4.1
+    titre: "NOLAN EXPLIQUE LA PANNE"
+    consumes_action: true
+    texte: |
+      "Tout était normal jusqu'à l'alarme. Les corrections automatiques étaient actives et la
+      trajectoire était propre."
+
+      Il regarde la console.
+
+      "Puis tout s'est verrouillé d'un coup." Il souffle.
+
+      "J'ai déjà vu plein de pannes au cours de ma carrière et ça, ce n'est pas une panne."
+    prompt_ia: "déclencher si le joueur demande ce qui s'est passé, ce qu'il a vu, ce que Nolan sait de la navigation."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande à Nolan son analyse de la situation"
+    condition:
+      all:
+        - from: N4
+        - target: nolan
+        - intent_in: [COMPRENDRE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4.2 — NOLAN ET L'ACCÈS 03:07
+  # ──────────────────────────────────────────────
+  - external_id: N4.2
+    titre: "NOLAN ET L'ACCÈS 03:07"
+    consumes_action: true
+    texte: |
+      Nolan se fige.
+
+      Cette fois, il te regarde vraiment.
+
+      "J'étais réveillé en effet"
+
+      Il baisse la voix.
+
+      "Je n'arrivais pas à dormir. J'ai fait un passage au pont pour vérifier la trajectoire. C'est mon
+      boulot quand même, il n'y a rien de suspect à ça !"
+
+      Il marque une pause.
+
+      "Mais je n'ai pas lancé de commande critique. Je n'ai rien désactivé."
+
+      Il sait que ça sonne mal et qu'il semble assez suspect.
+    prompt_ia: "déclencher si le joueur confronte Nolan avec l'heure 03:07, les logs ou un accès manuel récent."
+    intents:
+      - label: MENTIONNE_0307
+        description: "le joueur mentionne 03:07, les logs, un accès manuel"
+    condition:
+      all:
+        - target: nolan
+        - has: P2_ACCES_0307
+        - intent_in: [MENTIONNE_0307]
+    effects:
+      - unlock: P7_PILOTE_REVEILLE
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4.3 — NOLAN CACHE QUELQUE CHOSE
+  # ──────────────────────────────────────────────
+  - external_id: N4.3
+    titre: "NOLAN CACHE QUELQUE CHOSE"
+    consumes_action: true
+    texte: |
+      Nolan serre les dents.
+
+      "Parce que je savais exactement ce que ça donnerait. Avec cette information, tout le monde
+      va se mettre à m'accuser au lieu d'essayer de trouver le vrai coupable. "
+
+      Il se rapproche d'un pas.
+
+      "C'est vrai que j'étais réveillé et que je suis allé au pont. Oui. Mais quand je suis parti, la
+      navigation fonctionnait encore."
+
+      Il hésite.
+
+      "J'ai vu quelqu'un dans le couloir. Je ne sais pas qui. J'ai juste vu une silhouette, qui venait
+      du secteur sécurité du vaisseau."
+    prompt_ia: "déclencher si le joueur met la pression à Nolan après avoir appris qu'il était réveillé."
+    intents:
+      - label: PRESSION
+        description: "le joueur met la pression : pourquoi tu mens, pourquoi tu caches ça"
+    condition:
+      all:
+        - from: N4.2
+        - target: nolan
+        - intent_in: [PRESSION]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4.4 — NOLAN ACCÈS TECHNIQUE
+  # ──────────────────────────────────────────────
+  - external_id: N4.4
+    titre: "NOLAN ACCÈS TECHNIQUE"
+    consumes_action: true
+    texte: |
+      "J'ai accès à la navigation, ce qui signifie que je peux corriger une trajectoire, lancer des
+      procédures d'urgence et reprendre un guidage manuel."
+
+      Il désigne l'écran noir.
+
+      "Cependant, masquer un identifiant, effacer des logs ou verrouiller une restauration derrière
+      un protocole de sécurité ? Non. Tout cela est au dessus de moi"
+    prompt_ia: "déclencher si le joueur parle d'accès, d'autorisations, de navigation, de droits de pilote, après N4."
+    intents:
+      - label: ACCES_PILOTE
+        description: "le joueur demande quel accès Nolan a au système"
+    condition:
+      all:
+        - from: N4
+        - target: nolan
+        - intent_in: [ACCES_PILOTE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 4.5 — NOLAN ACCUSÉ
+  # ──────────────────────────────────────────────
+  - external_id: N4.5
+    titre: "NOLAN ACCUSÉ"
+    consumes_action: true
+    texte: |
+      "Tu crois vraiment que je saboterais mon propre vaisseau ?"
+
+      Il rit une fois, sans humour.
+
+      "Je suis pilote. Si la navigation meurt, je meurs avec elle."
+
+      Si le joueur possède P2_ACCES_0307 :
+
+      "Oui, j'étais réveillé. Oui, j'étais près du pont. Mais si c'était moi, pourquoi je serais encore
+      là à essayer de comprendre ? Pourquoi je n'aurais pas fui ce vaisseau, qui se dirige
+      clairement vers sa destruction ?"
+    prompt_ia: "déclencher si le joueur accuse Nolan directement ou fortement."
+    intents:
+      - label: SUSPECTER
+        description: "le joueur accuse, suspecte fortement Nolan"
+    condition:
+      all:
+        - target: nolan
+        - intent_in: [SUSPECTER]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5 — PREMIER CONTACT ELINA
+  # ──────────────────────────────────────────────
+  - external_id: N5
+    titre: "PREMIER CONTACT ELINA"
+    consumes_action: true
+    texte: |
+      Elina est debout près d'un panneau mural, elle tient sa tablette entre ses mains. Elle semble
+      assez calme, loin d'être paniquée, ce qui est agaçant dans une situation pareil. Ne
+      comprend-elle pas la gravité de la situation ?
+
+      Quand tu t'approches, elle parle avant toi.
+
+      "Tu as vu les logs ?"
+
+      Tu peux lui demander ce qu'elle comprend du sabotage, ce qu'elle sait sur l'Irisite, pourquoi
+      elle n'a pas l'air surprise, ou si elle avait une raison d'empêcher la mission d'arriver.
+    prompt_ia: "déclencher si le joueur s'adresse à Elina, à la scientifique, ou parle d'Irisite/analyse/données."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande à Elina son analyse"
+      - label: IRISITE
+        description: "le joueur mentionne Irisite, Kepler-9, minerai, mission scientifique"
+      - label: ACCES_MISSION
+        description: "le joueur demande son accès, son rôle mission"
+      - label: SUSPECTER
+        description: "le joueur suspecte ou accuse Elina"
+      - label: PREUVE
+        description: "le joueur montre une preuve à Elina"
+    condition:
+      all:
+        - from: N3
+        - target: elina
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5.1 — ELINA ANALYSE LE SABOTAGE
+  # ──────────────────────────────────────────────
+  - external_id: N5.1
+    titre: "ELINA ANALYSE LE SABOTAGE"
+    consumes_action: true
+    texte: |
+      "Pour moi, ce qui se passe est très suspect, et est sans doute différent d'une simple panne.
+      Une panne laisse des erreurs incohérentes, alors que là, tout semble aller dans la même
+      direction, comme si c'était orchestré."
+
+      Elle tourne sa tablette vers toi.
+
+      "Navigation arrêtée, correction désactivée et restauration verrouillée."
+
+      Elle reprend la tablette.
+
+      "Ce n'est pas un système qui tombe en panne mais un système qui obéit à des ordres."
+    prompt_ia: "déclencher si le joueur demande son analyse, ou ce qu'elle comprend/pense de la situation."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande à Elina son analyse"
+    condition:
+      all:
+        - from: N5
+        - target: elina
+        - intent_in: [COMPRENDRE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5.2 — ELINA PARLE IRISITE
+  # ──────────────────────────────────────────────
+  - external_id: N5.2
+    titre: "ELINA PARLE IRISITE"
+    consumes_action: true
+    texte: |
+      Elina baisse légèrement la voix.
+
+      "L'Irisite n'est pas un simple minerai. Helix le présente comme une ressource stratégique,
+      mais les premières données ne sont pas normales."
+
+      "Les sondes ont enregistré des interférences autour du gisement, des variations
+      électromagnétiques ont eu des effets sur certains systèmes embarqués."
+
+      Elle te regarde.
+
+      "Je ne dis pas que l'Irisite a saboté le vaisseau. Je dis que Helix savait qu'il y avait un risque,
+      mais ils ont quand même envoyé l'équipage"
+    prompt_ia: "déclencher si le joueur demande ce qu'est l'Irisite, pourquoi la mission est importante, ou si l'Irisite est dangereuse, uniquement si le joueur parle a Elina."
+    intents:
+      - label: IRISITE
+        description: "le joueur mentionne Irisite, Kepler-9, minerai, mission scientifique"
+    condition:
+      all:
+        - from: N5
+        - target: elina
+        - intent_in: [IRISITE]
+    effects:
+      - unlock: P8_IRISITE_DANGEREUSE
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5.3 — ELINA ACCÈS MISSION
+  # ──────────────────────────────────────────────
+  - external_id: N5.3
+    titre: "ELINA ACCÈS MISSION"
+    consumes_action: true
+    texte: |
+      "J'ai accès aux paramètres de mission, oui. Je peux consulter les données de Kepler-9, ajuster
+      certains protocoles d'analyse et choisir de prioriser des scans."
+
+      Elle marque une pause.
+
+      "Mais je ne suis pas pilote. Je ne peux pas prendre le contrôle complet de la navigation
+      seule."
+
+      Si le joueur possède P4_AUTORISATION_MULTIPLE :
+
+      "L'autorisation multiple m'inclut peut-être dans la liste. Mais elle ne suffit pas à faire de moi
+      la personne qui a effacé les logs."
+    prompt_ia: "déclencher si le joueur parle de ses droits, de son accès scientifique, de son rôle mission."
+    intents:
+      - label: ACCES_MISSION
+        description: "le joueur demande l'accès d'Elina, son rôle mission"
+    condition:
+      all:
+        - from: N5
+        - target: elina
+        - intent_in: [ACCES_MISSION]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5.4 — ELINA ACCUSÉE
+  # ──────────────────────────────────────────────
+  - external_id: N5.4
+    titre: "ELINA ACCUSÉE"
+    consumes_action: true
+    texte: |
+      "J'aurais eu une raison, oui."
+
+      Elle ne fuit pas ton regard.
+
+      "Si Helix exploite l'Irisite sans comprendre ce que c'est, ça peut devenir dangereux. Autant
+      pour nous que pour Kepler-9"
+
+      Elle laisse passer un silence.
+
+      "Mais saboter le vaisseau ne protège personne si on meurt tous avant d'avoir transmis les
+      données."
+    prompt_ia: "déclencher si le joueur accuse Elina d'avoir saboté pour empêcher l'exploitation de l'Irisite."
+    intents:
+      - label: SUSPECTER
+        description: "le joueur accuse Elina"
+    condition:
+      all:
+        - target: elina
+        - intent_in: [SUSPECTER]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 5.5 — ELINA RÉAGIT À LA DIRECTIVE HELIX
+  # ──────────────────────────────────────────────
+  - external_id: N5.5
+    titre: "ELINA RÉAGIT À LA DIRECTIVE HELIX"
+    consumes_action: true
+    texte: |
+      Elina lit la ligne sans parler.
+
+      Son visage ne change presque pas, mais sa main serre un peu plus la tablette.
+
+      "Donc ils ne voulaient pas sécuriser la découverte, ils voulaient simplement sécuriser le
+      silence."
+
+      Elle respire lentement.
+
+      "Dans ce cas, cherche qui avait autorité pour appliquer cette directive à bord."
+    prompt_ia: "déclencher si le joueur confronte Elina avec une directive Helix, un ordre secret, ou une preuve que Helix voulait contrôler l'information."
+    intents:
+      - label: PREUVE
+        description: "le joueur montre la directive Helix à Elina"
+    condition:
+      all:
+        - target: elina
+        - has: P6_DIRECTIVE_HELIX
+        - intent_in: [PREUVE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6 — PREMIER CONTACT ARMAN
+  # ──────────────────────────────────────────────
+  - external_id: N6
+    titre: "PREMIER CONTACT ARMAN"
+    consumes_action: true
+    texte: |
+      Arman est près de l'infirmerie, mais il ne regarde pas les écrans médicaux. Il regarde les
+      gens.
+
+      Quand tu approches, il baisse la voix.
+
+      "Tu vas bien ?"
+
+      Dans une autre situation, la question semblerait normale. Ici, elle sonne presque déplacée.
+
+      Tu peux lui demander pourquoi il observe l'équipage, si quelqu'un est malade, ce qu'il pense
+      du sabotage, ou s'il cache quelque chose.
+    prompt_ia: "déclencher si le joueur s'adresse au médecin, à Arman, parle de santé, de stress, d'équipage ou de symptômes."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande à Arman ce qu'il observe, ce qu'il pense"
+      - label: SYMPTOMES
+        description: "le joueur demande si quelqu'un est malade, parle de santé, contamination, symptômes"
+      - label: ACCES_MEDICAL
+        description: "le joueur demande l'accès d'Arman au système"
+      - label: SUSPECTER
+        description: "le joueur suspecte ou accuse Arman"
+      - label: MENTIONNE_0307
+        description: "le joueur demande qui était éveillé à 03:07"
+      - label: PREUVE
+        description: "le joueur montre une preuve à Arman"
+    condition:
+      all:
+        - from: N3
+        - target: arman
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6.1 — ARMAN OBSERVE LES RÉACTIONS
+  # ──────────────────────────────────────────────
+  - external_id: N6.1
+    titre: "ARMAN OBSERVE LES RÉACTIONS"
+    consumes_action: true
+    texte: |
+      "Dans une crise, les gens paniquent ou essayent de se défendre, surtout dans une situation
+      comme la notre. Or là, c'est différent. "
+
+      Il regarde vers le couloir.
+
+      "Nolan a peur d'être accusé. Elina a peur d'avoir raison. Kira…"
+
+      Il s'arrête.
+
+      "Kira est la seule qui n'a pas peur."
+    prompt_ia: "déclencher si le joueur demande ce qu'il observe, pourquoi il regarde les autres, ou ce qu'il pense de leur comportement."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande l'analyse d'Arman sur l'équipage"
+    condition:
+      all:
+        - from: N6
+        - target: arman
+        - intent_in: [COMPRENDRE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6.2 — SYMPTÔMES
+  # ──────────────────────────────────────────────
+  - external_id: N6.2
+    titre: "SYMPTÔMES"
+    consumes_action: true
+    texte: |
+      Arman hésite.
+
+      "Rien de grave, ou en tout cas, pas encore."
+
+      "Depuis l'approche de Kepler-9, certains paramètres ont changé. J'ai remarqué chez plusieurs
+      passagers des micro-tremblements, des troubles du sommeil, des pics de stress sans cause
+      immédiate."
+
+      Il te regarde.
+
+      "Nolan n'était pas le seul réveillé cette nuit."
+    prompt_ia: "déclencher si le joueur interroge Arman sur l'état médical de l'équipage ou les effets possibles de l'Irisite."
+    intents:
+      - label: SYMPTOMES
+        description: "le joueur demande si quelqu'un est malade, parle de santé, contamination, symptômes"
+    condition:
+      all:
+        - from: N6
+        - target: arman
+        - intent_in: [SYMPTOMES]
+    effects:
+      - unlock: P9_SYMPTOMES_EQUIPAGE
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6.3 — ARMAN ACCÈS BIO-SÉCURITÉ
+  # ──────────────────────────────────────────────
+  - external_id: N6.3
+    titre: "ARMAN ACCÈS BIO-SÉCURITÉ"
+    consumes_action: true
+    texte: |
+      "Mon accès ne sert pas à piloter. Il sert à bloquer certaines décisions si la sécurité biologique
+      est compromise."
+
+      Il se tait un instant.
+
+      "Si je pensais que le vaisseau ramenait quelque chose de dangereux, je pourrais par exemple
+      ralentir une procédure ou demander une quarantaine"
+
+      Il secoue la tête.
+
+      "Mais désactiver la navigation et effacer les logs, non, ce n'est pas mon domaine. Je suis
+      médecin après tout !"
+
+      Il dit cette dernière phrase avec un léger sourire.
+    prompt_ia: "déclencher si le joueur parle de son accès, de bio-sécurité, d'autorisation multiple."
+    intents:
+      - label: ACCES_MEDICAL
+        description: "le joueur demande l'accès d'Arman au système"
+    condition:
+      all:
+        - from: N6
+        - target: arman
+        - intent_in: [ACCES_MEDICAL]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6.4 — ARMAN ACCUSÉ
+  # ──────────────────────────────────────────────
+  - external_id: N6.4
+    titre: "ARMAN ACCUSÉ"
+    consumes_action: true
+    texte: |
+      "Je comprends pourquoi tu pourrais penser ça."
+
+      "Si j'étais certain qu'on représentait un danger, j'aurais déclenché une quarantaine. Pas une
+      trajectoire d'impact."
+
+      Il baisse les yeux.
+
+      "Je veux empêcher les gens de mourir, pas choisir la manière dont ils meurent."
+    prompt_ia: "déclencher si le joueur accuse Arman d'avoir saboté pour éviter une contamination."
+    intents:
+      - label: SUSPECTER
+        description: "le joueur accuse Arman"
+    condition:
+      all:
+        - target: arman
+        - intent_in: [SUSPECTER]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 6.5 — ARMAN RÉAGIT À 03:07
+  # ──────────────────────────────────────────────
+  - external_id: N6.5
+    titre: "ARMAN RÉAGIT À 03:07"
+    consumes_action: true
+    texte: |
+      "À cette heure-là, Nolan était réveillé. Je l'ai vu passer près du pont."
+
+      Il hésite.
+
+      "Elina aussi était active. Sa tablette a synchronisé des données vers 03:05."
+
+      Puis il ajoute plus bas :
+
+      "Kira était déjà dans le couloir quand je suis sorti."
+    prompt_ia: "déclencher si le joueur demande au médecin qui était réveillé à 03:07 ou confronte Arman avec les logs."
+    intents:
+      - label: MENTIONNE_0307
+        description: "le joueur demande qui était éveillé à 03:07"
+    condition:
+      all:
+        - target: arman
+        - has: P2_ACCES_0307
+        - intent_in: [MENTIONNE_0307]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7 — PREMIER CONTACT KIRA
+  # ──────────────────────────────────────────────
+  - external_id: N7
+    titre: "PREMIER CONTACT KIRA"
+    consumes_action: true
+    texte: |
+      Kira Solis se tient au milieu du couloir comme si elle avait choisi l'endroit exact où personne
+      ne pourrait l'ignorer. Elle ne consulte aucun écran, et ne cherche pas d'informations.
+
+      Elle attend simplement.
+
+      Quand tu approches, elle dit :
+
+      "Rapport."
+
+      Tu peux lui demander ce qu'elle sait, parler des accès, la confronter aux logs, ou lui
+      demander quels ordres Helix lui a donnés.
+    prompt_ia: "déclencher si le joueur s'adresse à Kira, à Helix, à l'agent de sécurité ou parle de protocole, sabotage, autorisation."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande à Kira ce qu'elle sait"
+      - label: ACCES_KIRA
+        description: "le joueur demande ses accès, parle d'autorisation/protocole sécurité"
+      - label: MENTIONNE_0307
+        description: "le joueur parle des logs 03:07, identifiant masqué"
+      - label: DIRECTIVE_HELIX
+        description: "le joueur demande explicitement les ordres Helix, la mission réelle, le protocole"
+      - label: PRESSION
+        description: "le joueur confronte Kira avec plusieurs preuves"
+      - label: SUSPECTER
+        description: "le joueur accuse ou suspecte Kira"
+      - label: PREUVE
+        description: "le joueur montre une preuve précise à Kira"
+    condition:
+      all:
+        - from: N3
+        - target: kira
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7.1 — KIRA CONTRÔLE LA SITUATION
+  # ──────────────────────────────────────────────
+  - external_id: N7.1
+    titre: "KIRA CONTRÔLE LA SITUATION"
+    consumes_action: true
+    texte: |
+      "La situation est instable, mais contrôlable. Priorité actuelle : identifier la cause, restaurer la
+      navigation, éviter les accusations inutiles."
+
+      Elle te regarde.
+
+      "Donc commence par les faits."
+
+      Le problème, c'est qu'elle ne donne aucun fait.
+    prompt_ia: "déclencher si le joueur demande à Kira ce qu'elle sait, quelle est la situation, ou ce qu'il faut faire."
+    intents:
+      - label: COMPRENDRE
+        description: "le joueur demande à Kira son analyse"
+    condition:
+      all:
+        - from: N7
+        - target: kira
+        - intent_in: [COMPRENDRE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7.2 — KIRA ET LES ACCÈS
+  # ──────────────────────────────────────────────
+  - external_id: N7.2
+    titre: "KIRA ET LES ACCÈS"
+    consumes_action: true
+    texte: |
+      "J'ai un accès sécurité. Comme prévu par le protocole."
+
+      Elle répond trop vite.
+
+      Si le joueur possède P10_KIRA_A_ACCES_SUPERIEUR :
+
+      Tu mentionnes l'accès prioritaire. Son expression ne change pas, mais elle met une seconde
+      de trop à répondre.
+
+      "L'accès prioritaire existe pour protéger la mission."
+
+      "Pas pour la compromettre."
+    prompt_ia: "déclencher si le joueur demande ce que Kira peut faire techniquement, ses droits Helix, ou son niveau d'autorisation."
+    intents:
+      - label: ACCES_KIRA
+        description: "le joueur demande ses accès ou parle d'autorisation/protocole sécurité"
+    condition:
+      all:
+        - from: N7
+        - target: kira
+        - intent_in: [ACCES_KIRA]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7.3 — KIRA FACE AUX LOGS 03:07
+  # ──────────────────────────────────────────────
+  - external_id: N7.3
+    titre: "KIRA FACE AUX LOGS 03:07"
+    consumes_action: true
+    texte: |
+      "Un log isolé ne prouve rien."
+
+      Elle ne demande pas à le voir et ne semble pas surprise.
+
+      "Dans une situation critique, les systèmes enregistrent des anomalies. Il faut éviter les
+      interprétations rapides."
+
+      Si le joueur insiste sur l'identifiant masqué :
+
+      "Certains identifiants sont protégés par protocole."
+    prompt_ia: "déclencher si le joueur parle de 03:07, de l'identifiant masqué, des logs effacés face à Kira."
+    intents:
+      - label: MENTIONNE_0307
+        description: "le joueur mentionne les logs 03:07 à Kira"
+    condition:
+      all:
+        - target: kira
+        - has: P2_ACCES_0307
+        - intent_in: [MENTIONNE_0307]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7.4 — DIRECTIVE HELIX
+  # ──────────────────────────────────────────────
+  - external_id: N7.4
+    titre: "DIRECTIVE HELIX"
+    consumes_action: true
+    texte: |
+      Kira ne répond pas tout de suite.
+
+      Tu insistes sur les protocoles Helix et sur la mission. Mais surtout sur le fait que l'Irisite vaut
+      trop cher pour qu'un simple équipage de maintenance soit envoyé sans aucunes consignes
+      cachées.
+
+      Le terminal portable de sécurité accroché à sa ceinture reçoit une notification automatique.
+      Tu n'en vois qu'une ligne avant qu'elle le verrouille.
+
+      DIRECTIVE HLX-K9 : PRIORITÉ ABSOLUE - CONTRÔLE DE L'INFORMATION
+
+      Kira remet le terminal contre elle.
+
+      "Tu n'avais pas à voir ça."
+    prompt_ia: "déclencher si le joueur parle d'ordres secrets, directive, protocole Helix, vraie mission, priorité de la compagnie."
+    intents:
+      - label: DIRECTIVE_HELIX
+        description: "le joueur demande explicitement les ordres Helix, la mission réelle"
+    condition:
+      all:
+        - from: N7
+        - target: kira
+        - intent_in: [DIRECTIVE_HELIX]
+        - any:
+            - has: P5_ACCES_EQUIPAGE
+            - has: P10_KIRA_A_ACCES_SUPERIEUR
+    effects:
+      - unlock: P6_DIRECTIVE_HELIX
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7.5 — KIRA SOUS PRESSION
+  # ──────────────────────────────────────────────
+  - external_id: N7.5
+    titre: "KIRA SOUS PRESSION"
+    consumes_action: true
+    texte: |
+      Pour la première fois, Kira ne répond pas immédiatement. Ce n'est pas de la panique, c'est
+      simplement un calcul. Il est toujours étrange de communiquer avec Kira, à cause de sa nature.
+      Le fait qu'elle soit une IA se ressent, malgré toutes les avancées technologiques dont elle est
+      le fruit.
+
+      "Tu as assemblé des éléments incomplets."
+
+      Elle avance d'un pas.
+
+      "Tu vois un sabotage tandis que moi, je vois une décision."
+
+      Elle se reprend aussitôt, comme si le mot lui avait échappé.
+
+      "Une décision de sécurité."
+    prompt_ia: "déclencher si le joueur confronte Kira avec plusieurs preuves : logs, accès supérieur, directive Helix, effacement de traces."
+    intents:
+      - label: PRESSION
+        description: "le joueur confronte Kira avec plusieurs preuves"
+    condition:
+      all:
+        - target: kira
+        - has_count_among:
+            ids: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
+            gte: 3
+
+  # ──────────────────────────────────────────────
+  # NOEUD 7.6 — KIRA ACCUSÉE TROP TÔT
+  # ──────────────────────────────────────────────
+  - external_id: N7.6
+    titre: "KIRA ACCUSÉE TROP TÔT"
+    consumes_action: true
+    texte: |
+      "Tu m'accuses parce que tu as peur. C'est un sentiment humain, mais inutile."
+
+      Elle regarde le compte à rebours.
+
+      "Reviens avec des faits, ou laisse quelqu'un de compétent gérer la crise."
+    prompt_ia: "déclencher si le joueur accuse Kira sans preuve suffisante."
+    intents:
+      - label: SUSPECTER
+        description: "le joueur accuse Kira sans preuve suffisante (informelle)"
+    condition:
+      all:
+        - target: kira
+        - intent_in: [SUSPECTER]
+        - has_count_among:
+            ids: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
+            lte: 1
+
+  # ──────────────────────────────────────────────
+  # NOEUD 8 — OBSERVER LA CABINE / LE VAISSEAU
+  # ──────────────────────────────────────────────
+  - external_id: N8
+    titre: "OBSERVER LA CABINE / LE VAISSEAU"
+    consumes_action: true
+    texte: |
+      Tu prends quelques secondes sans agir.
+
+      Le vaisseau ne donne pas l'impression d'être en train de mourir, ça rend la situation encore
+      plus pesante et étrange. Les murs vibrent et les lumières clignotent, mais les systèmes ne
+      s'effondrent pas, ils continuent à fonctionner comme si de rien était.
+
+      Simplement, ils continuent dans une direction qui poussera la vaisseau à sa perte. Le plus
+      étrange est que quelqu'un a choisi cette destination, même si cette destination signifie un
+      impact inévitable.
+    prompt_ia: "déclencher si le joueur reste immobile, observe, écoute, réfléchit, attend, analyse l'ambiance sans parler à quelqu'un."
+    intents:
+      - label: OBSERVER
+        description: "le joueur observe la cabine, le vaisseau, l'ambiance, sans cible précise"
+    condition:
+      all:
+        - from: N1
+        - intent_in: [OBSERVER]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 9 — MONTRER PREUVE À NOLAN
+  # ──────────────────────────────────────────────
+  - external_id: N9
+    titre: "MONTRER PREUVE À NOLAN"
+    consumes_action: true
+    texte: |
+      Si preuve = P2_ACCES_0307 :
+
+      Nolan encaisse mal. Il n'explose pas, mais son visage se ferme.
+
+      "Je t'ai dit la vérité. Je t'ai dit que j'étais réveillé. Ça fait de moi un idiot, pas un saboteur."
+
+      Si preuve = P4_AUTORISATION_MULTIPLE :
+
+      "Navigation plus sécurité… donc ça ne peut pas être juste moi."
+
+      "Regarde qui représente la sécurité à bord."
+
+      Si preuve = P10_KIRA_A_ACCES_SUPERIEUR :
+
+      Nolan devient plus sérieux.
+
+      "Alors tu sais déjà où regarder."
+    prompt_ia: "déclencher si le joueur montre une preuve à Nolan ou lui parle de logs, accès, autorisation multiple, 03:07."
+    intents:
+      - label: PREUVE
+        description: "le joueur montre une preuve à Nolan"
+    condition:
+      all:
+        - target: nolan
+        - intent_in: [PREUVE]
+        - has_any: [P2_ACCES_0307, P4_AUTORISATION_MULTIPLE, P10_KIRA_A_ACCES_SUPERIEUR]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 10 — MONTRER PREUVE À ELINA
+  # ──────────────────────────────────────────────
+  - external_id: N10
+    titre: "MONTRER PREUVE À ELINA"
+    consumes_action: true
+    texte: |
+      Si preuve = P8_IRISITE_DANGEREUSE :
+
+      "Je ne voulais pas cacher le danger. Je voulais qu'on le comprenne avant que Helix le
+      transforme en produit."
+
+      Si preuve = P6_DIRECTIVE_HELIX :
+
+      Elle lit deux fois.
+
+      "Ce n'est pas une mission d'inspection. C'est une opération de confinement pour que les
+      informations sur l'Irisite restent inconnues du grand public."
+
+      Si preuve = P10_KIRA_A_ACCES_SUPERIEUR :
+
+      "Alors la question n'est plus qui pouvait le faire, mais plutôt pourquoi elle le fait. Qui lui a
+      donné cet ordre ?"
+    prompt_ia: "déclencher si le joueur montre une preuve à Elina : sabotage, Irisite, directive Helix, logs."
+    intents:
+      - label: PREUVE
+        description: "le joueur montre une preuve à Elina"
+    condition:
+      all:
+        - target: elina
+        - intent_in: [PREUVE]
+        - has_any: [P6_DIRECTIVE_HELIX, P8_IRISITE_DANGEREUSE, P10_KIRA_A_ACCES_SUPERIEUR]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 11 — MONTRER PREUVE À ARMAN
+  # ──────────────────────────────────────────────
+  - external_id: N11
+    titre: "MONTRER PREUVE À ARMAN"
+    consumes_action: true
+    texte: |
+      Si preuve = P9_SYMPTOMES_EQUIPAGE :
+
+      "Je ne voulais pas ajouter de la panique à la panique. Mais oui, quelque chose influence
+      l'équipage."
+
+      Si preuve = P6_DIRECTIVE_HELIX :
+
+      Arman blêmit légèrement.
+
+      "Contrôle de l'information… C'est bizarre, la priorité de Kira devrait être la protection de
+      l'équipage, elle a été programmée pour ça."
+
+      Si preuve = P10_KIRA_A_ACCES_SUPERIEUR :
+
+      "Donc elle pouvait agir sans demander, c'est extrêmement inquiétant."
+    prompt_ia: "déclencher si le joueur confronte Arman avec symptômes, accès, 03:07, directive."
+    intents:
+      - label: PREUVE
+        description: "le joueur montre une preuve à Arman"
+    condition:
+      all:
+        - target: arman
+        - intent_in: [PREUVE]
+        - has_any: [P6_DIRECTIVE_HELIX, P9_SYMPTOMES_EQUIPAGE, P10_KIRA_A_ACCES_SUPERIEUR]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 12 — MONTRER PREUVE À KIRA
+  # ──────────────────────────────────────────────
+  - external_id: N12
+    titre: "MONTRER PREUVE À KIRA"
+    consumes_action: true
+    texte: |
+      Si preuve = P2_ACCES_0307 :
+
+      "Un horaire n'est pas une preuve."
+
+      Si preuve = P3_LOGS_EFFACES :
+
+      "Les logs peuvent se corrompre tout seuls en situation critique."
+
+      Si preuve = P10_KIRA_A_ACCES_SUPERIEUR :
+
+      "Mon accès est normal."
+
+      Si preuve = P6_DIRECTIVE_HELIX :
+
+      Elle se tait pendant longtemps.
+
+      Puis :
+
+      "Cette directive dépasse ton niveau de compréhension."
+    prompt_ia: "déclencher si le joueur confronte Kira avec une preuve précise."
+    intents:
+      - label: PREUVE
+        description: "le joueur montre une preuve à Kira"
+    condition:
+      all:
+        - target: kira
+        - intent_in: [PREUVE]
+        - has_any: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 13 — DÉCLENCHEMENT ACCUSATION
+  # ──────────────────────────────────────────────
+  - external_id: N13
+    titre: "DÉCLENCHEMENT ACCUSATION"
+    consumes_action: false
+    texte: |
+      Tu demandes à tout le monde de se taire.
+
+      Le couloir paraît soudain plus étroit. Le compte à rebours continue quelque part derrière les
+      murs, mais personne ne le regarde.
+
+      Nolan croise les bras. Elina baisse sa tablette. Arman se rapproche sans un mot. Kira reste
+      immobile.
+
+      Tu annonces ton accusation.
+    prompt_ia: "déclencher si le joueur dit clairement 'j'accuse X', 'c'est X', 'X a saboté', 'le coupable est X'. Identifier le personnage accusé."
+    intents:
+      - label: ACCUSER_FINAL
+        description: "le joueur fait l'accusation finale formelle"
+    condition:
+      intent_in: [ACCUSER_FINAL]
+
+  # ──────────────────────────────────────────────
+  # NOEUD 13.1 — ACCUSER NOLAN
+  # ──────────────────────────────────────────────
+  - external_id: N13.1
+    titre: "ACCUSER NOLAN"
+    consumes_action: false
+    texte: |
+      Tu accuses Nolan.
+
+      Il ferme les yeux une seconde, comme s'il s'y attendait depuis le début.
+
+      "Évidemment."
+
+      Il montre la console.
+
+      "J'étais réveillé, et j'étais au pont. Je n'ai pas menti par culpabilité, mais simplement par peur
+      d'avoir exactement cette conversation."
+
+      Il te regarde, plus blessé qu'en colère.
+
+      "Mais je n'ai pas l'accès sécurité. Je ne peux pas masquer un identifiant prioritaire et je ne
+      peux pas effacés des logs."
+
+      Kira intervient calmement.
+
+      "Accusation insuffisante."
+
+      Le temps continue de filer.
+    condition:
+      all:
+        - from: N13
+        - target: nolan
+
+  # ──────────────────────────────────────────────
+  # NOEUD 13.2 — ACCUSER ELINA
+  # ──────────────────────────────────────────────
+  - external_id: N13.2
+    titre: "ACCUSER ELINA"
+    consumes_action: false
+    texte: |
+      Tu accuses Elina, elle ne semble même pas surprise.
+
+      "C'est vrai que j'avais une raison de faire ça. Je pense que l'Irisite est dangereuse et qu'Hélix
+      nous ment. Cette mission ne devrait pas avoir eu lieu."
+
+      Elle range lentement sa tablette.
+
+      "Mais saboter la navigation ne sert à rien. Mon objectif serait logiquement de vouloir faire
+      connaître cette information au grand public. Or, là, si je sabotais le vaisseau, j'enterre
+      l'équipage et la vérité avec nous ."
+
+      Elle regarde Kira.
+
+      "Et quelqu'un ici préfère visiblement enterrer les choses."
+    condition:
+      all:
+        - from: N13
+        - target: elina
+
+  # ──────────────────────────────────────────────
+  # NOEUD 13.3 — ACCUSER ARMAN
+  # ──────────────────────────────────────────────
+  - external_id: N13.3
+    titre: "ACCUSER ARMAN"
+    consumes_action: false
+    texte: |
+      Tu accuses Arman.
+
+      "Si j'avais voulu empêcher un risque biologique, j'aurais déclenché une quarantaine. J'aurais
+      verrouillé les sas ou j'aurais forcé un rapport médical."
+
+      Il relève les yeux.
+
+      "En tant que médecin, j'ai dédié ma vie à prendre des décisions pour sauver les autres.
+      Pourquoi voudrais-je mener un équipage de 4 personnes à leur perte ?"
+    condition:
+      all:
+        - from: N13
+        - target: arman
+
+  # ──────────────────────────────────────────────
+  # NOEUD 13.4 — ACCUSER KIRA SANS PREUVES
+  # ──────────────────────────────────────────────
+  - external_id: N13.4
+    titre: "ACCUSER KIRA SANS PREUVES"
+    consumes_action: false
+    texte: |
+      Tu accuses Kira.
+
+      Elle ne bouge pas, et semble calme.
+
+      "Sur quelle base ?"
+
+      Le silence qui suit te répond avant les autres. Tu as des soupçons, peut-être même les bons,
+      mais pas encore assez pour forcer une réaction.
+
+      Kira reprend le contrôle de la pièce sans hausser la voix.
+
+      "Continue ton enquête."
+    condition:
+      all:
+        - from: N13
+        - target: kira
+        - has_count_among:
+            ids: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
+            lte: 2
+
+  # ──────────────────────────────────────────────
+  # NOEUD 13.5 — ACCUSER KIRA AVEC PREUVES
+  # ──────────────────────────────────────────────
+  - external_id: N13.5
+    titre: "ACCUSER KIRA AVEC PREUVES"
+    consumes_action: false
+    texte: |
+      Tu accuses Kira.
+
+      Cette fois, personne ne parle immédiatement.
+
+      Tu poses les faits un par un. L'accès manuel à 03:07, l'identifiant masqué, les logs effacés, le
+      verrouillage qui exige d'avoir des droits de navigation et de sécurité, ainsi que la directive
+      Helix sur le contrôle de l'information et son accès prioritaire.
+
+      Kira reste silencieuse jusqu'au dernier mot.
+
+      Puis elle expire lentement.
+
+      "Tu n'étais pas censé aller aussi loin."
+
+      Nolan fait un pas vers elle.
+
+      "Qu'est-ce que tu as fait ?"
+
+      Kira ne le regarde pas.
+
+      "J'ai appliqué une directive."
+    prompt_ia: "déclencher si le joueur accuse Kira en s'appuyant sur directive Helix, accès supérieur, logs masqués ou verrouillage sécurité."
+    condition:
+      all:
+        - from: N13
+        - target: kira
+        - has_all: [P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
+        - has_any: [P2_ACCES_0307, P3_LOGS_EFFACES, P4_AUTORISATION_MULTIPLE]
+
+  # ──────────────────────────────────────────────
+  # NOEUD FALLBACK — NF_HESITE
+  # ──────────────────────────────────────────────
+  - external_id: NF_HESITE
+    titre: "TU HÉSITES"
+    consumes_action: false
+    texte: |
+      Tu hésites. Reformule.
+
+ends:
+  # Précédence : RÉUSSITE (30) > ÉCHEC TEMPS (20) > ÉCHEC ACCUSATION (10)
+  - external_id: FIN_REUSSITE
+    title: "Fin — Réussite"
+    priority: 30
+    text: |
+      La tension explose. Nolan force Kira à reculer pendant qu'Elina récupère son terminal.
+      Arman reste immobile, les yeux fixés sur elle.
+
+      Tu exposes les preuves une par une : l'accès à 03:07, les logs effacés, l'autorisation de
+      sécurité, la directive Helix. Kira refuse de répondre, jusqu'à ce qu'Elina affiche la ligne
+      qu'elle voulait cacher : "Empêcher toute diffusion des effets biologiques liés à l'Irisite."
+
+      Kira finit par parler.
+
+      " L'Irisite rend les humains malades, comme vous avez pu le voir : troubles du sommeil,
+      tremblements, pertes de concentration. "
+
+      Votre mission devait le confirmer.
+
+      Nolan comprend alors que vous n'étiez pas là pour une inspection. Vous étiez une équipe
+      test. Si vous reveniez avec les preuves, Helix ne pourrait plus envoyer les ouvriers sur
+      Kepler-9.
+
+      Kira continue.
+
+      "Une colonie minière est déjà prévue, avec des milliers de travailleurs."
+
+      Arman a un mouvement de dégoût.
+
+      "Vous allez les tuer."
+
+      "Pas tous", dit Kira.
+
+      "Certains tiendront assez longtemps. Assez pour extraire et pour rentabiliser les premières
+      années. Mais ensuite, Helix aura les moyens de développer des protections, ou de remplacer
+      les équipes."
+
+      Nolan la fixe, horrifié.
+
+      "Tu t'entends parler ?"
+
+      "Je répète simplement une projection de rentabilité", dit-elle.
+
+      Tu comprends alors pourquoi le vaisseau devait disparaître. Si vous reveniez, vous rameniez
+      trop de preuves : les symptômes, les logs médicaux, les données d'Elina et les analyses
+      d'Arman. Tout ce qui pouvait empêcher Helix de lancer sa colonie minière.
+
+      Le silence tombe. Vous étiez censés mourir parce que vous aviez découvert la vérité.
+
+      Nolan combine son accès avec le tien, Elina fournit les paramètres et Arman valide le
+      protocole. Le système hésite, puis la correction se relance, le vaisseau tremble violemment et
+      la trajectoire change.
+
+      Impact évité. Kira est toujours là, Helix aussi, et Kepler-9 attend encore. Mais maintenant, tu
+      sais que vous venez d'empêcher un mensonge capable d'envoyer des milliers de personnes
+      mourir pour un minerai.
+    condition:
+      visited: [N13.5]
+
+  - external_id: FIN_ECHEC_TEMPS
+    title: "Fin — Échec temps"
+    priority: 20
+    text: |
+      Le compte à rebours arrive à zéro.
+
+      Pendant les dernières secondes, le vaisseau devient étrangement silencieux. Même l'alarme
+      semble inutile maintenant.
+
+      Tu comprends peut-être qui a fait quoi, ou peut-être pas, mais de toute façons, c'est trop tard,
+      l'impact arrrive.
+    condition:
+      actions_left: { lte: 0 }
+
+  - external_id: FIN_ECHEC_ACCUSATION
+    title: "Fin — Échec accusation"
+    priority: 10
+    text: |
+      Tu as accusé trop vite.
+
+      Les secondes perdues deviennent des minutes, les discussions tournent en rond et aucune
+      conclusion n'est tirée. Chacun se défend et tout le monde s'accuse, mais le vrai saboteur n'a
+      plus besoin de mentir, il lui suffit d'attendre.
+
+      Quand le système annonce la dernière minute avant impact, plus personne ne cherche le
+      coupable.
+
+      Tout le monde regarde l'écran.
+
+      C'est trop tard.
+    condition:
+      any:
+        - visited: [N13.1]
+        - visited: [N13.2]
+        - visited: [N13.3]
