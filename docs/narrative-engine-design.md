@@ -867,7 +867,7 @@ mais ça implique de migrer les `event QG/Terrain`. À reconsidérer Phase 6+.
 Chaque phase a un critère de sortie **testable**. La Phase 0 (celle-ci) sort dès que ce
 doc est validé.
 
-### Phase 1 — Encoder les 2 PDFs en fixtures YAML
+### Phase 1 — Encoder les 2 PDFs en fixtures YAML [LIVRÉE — 2026-05-25]
 
 **Livrable** : 2 fichiers `scenarios/fixtures/helix-corp.yaml`,
 `scenarios/fixtures/3036.yaml`, conformes au format §10.2.
@@ -879,7 +879,7 @@ doc est validé.
 - Validation manuelle : faire lire le YAML à un autre humain, qui doit pouvoir
   retracer mentalement les bifurcations du PDF.
 
-### Phase 2 — Migration de schéma BD + Zod schemas
+### Phase 2 — Migration de schéma BD + Zod schemas [LIVRÉE — 2026-05-25]
 
 **Livrable** : `db/schema.json` patché avec :
 - champs additifs sur `Scenario`, `Node`, `Session`, `End` ;
@@ -895,61 +895,129 @@ doc est validé.
   `/sessions/<slug_free>`, créer une contribution, vérifier que `/api/checkMsg` est
   toujours appelé).
 
-### Phase 3 — Endpoint Go `/api/classify` + runtime SvelteKit
+### Phase 3 — Moteur narratif pur + tests Vitest [LIVRÉE — 2026-05-25]
+
+> Note (2026-05-25) : la Phase 3 originale (« Endpoint Go `/api/classify` + runtime
+> SvelteKit ») a été éclatée à l'exécution. Seul le **moteur pur** a été livré ici ;
+> le Go classify + le runtime SvelteKit + la branche `addNode` ont été reportés en
+> Phase 5 et Phase 6 (cf. ci-dessous).
+
+**Livré** :
+- `src/lib/narrative/` : `types.ts`, `compile.ts`, `conditions.ts`, `effects.ts`,
+  `engine.ts`, `yaml.ts`, `index.ts` — moteur hermétique, aucune dépendance vers
+  `$lib/i18n` ni Svelte.
+- `tests/units/narrative/{conditions,engine-helix,engine-3036,fixtures,schema}.test.ts`
+  — 50 tests à la livraison, étendus à 92 après Phase 3bis.
+
+**Critère de sortie atteint** : `pnpm test:narrative` ✅, parcours canoniques Helix
+(REUSSITE / ECHEC_TEMPS / ECHEC_ACCUSATION) et 3036 (5 fins) couverts par tests E2E.
+
+### Phase 3bis — Polish moteur (refines Zod, validation référentielle, clamp) [LIVRÉE — 2026-05-25]
+
+**Livré** : 6 commits `fix(narrative): …` corrigeant les pièges silencieux identifiés
+en review d'ensemble Phases 1-3 (refines Zod sur prédicats numériques, refuse
+`condition: {}`, propagation du numéro de ligne YAML, unicité des `external_id` sur
+les 5 collections, test de régression cross-module sur `validateReferences`, clamp
+`actions_left` à 0).
+
+**Critère de sortie atteint** : 92/92 tests passent (74 → 92, +18). Phase-reviewer
+PASS.
+
+### Phase 4 — Authoring scripted via import YAML [LIVRÉE — 2026-05-25]
+
+**Livré** :
+- `src/routes/admin/scenario/import/` (page + form action `importFixture`).
+- `src/lib/scenario/{pb-id,validate-references,persist-scripted}.ts` — pipeline
+  `parseYaml → safeParse → compile → validateReferences → persistCompiledScenario`
+  avec batch transactionnel PocketBase 0.26.
+- Drop de la collection `TriggerNodes` inutilisée.
+- `RUNBOOK.md` + subagent `runbook-keeper` introduits comme byproduct (Batch API
+  doit être activée côté PB sinon 403).
+
+**Critère de sortie atteint** : un superAdmin importe `helix-corp.yaml` (47 noeuds,
+10 preuves, 4 PNJ, 3 fins) en une transaction. Tests d'intégration avec mock PB.
+
+### Phase 5 — Runtime scripted (serveur + UI joueur)
+
+**Objectif** : un superAdmin peut créer une session scripted depuis
+`/admin/sessions/create`, et un joueur peut la jouer du début à la fin dans le
+navigateur jusqu'à atteindre une fin déclenchée par l'état (preuves + scores +
+actions).
+
+**Sous-tâches gatées** (chaque sous-tâche = un task dans le TaskCreate de
+`/phase start 5` ; le critère de sortie de la phase n'est validé que quand les 5
+sous-tâches sont vertes et `phase-reviewer` PASS) :
+
+- **5.1 — Session admin scripted.** `/admin/sessions/create` accepte les scénarios
+  `engine: 'scripted'` (dropdown filtré, branchement de `createStartNode` selon
+  `engine`). Pas de UI joueur encore, juste créer la session avec le bon
+  `current_node`, `visited_nodes`, `actions_left`, `scores`, `evidences` initiaux
+  (cf. `initialState()` de `$lib/narrative/types.ts`). Tests unit serveur.
+- **5.2 — Stub classifieur TS.** `src/lib/narrative/classify-stub.ts` exposant
+  `classifyStub(text: string, prompt_ia: string, intents: string[]): { intent:
+  string; classification?: string; confidence: number }`. Stratégie : keyword
+  matching + fallback premier intent déclaré. Hermétique (rien de Svelte ni i18n).
+  Tests Vitest sur ≥10 phrases joueur tirées des PDFs (Helix et 3036).
+- **5.3 — Runtime serveur.** `src/lib/scenario/runtime-scripted.ts` exposant
+  `progressScripted(pb, sessionId, playerText, classifier): Promise<StepResult>`
+  qui (a) charge le `Scenario` + `Session` PB, (b) compile, (c) appelle le
+  classifier, (d) appelle `engine.step()`, (e) persiste `current_node`,
+  `visited_nodes`, `evidences`, `scores`, `actions_left`, `last_intent`,
+  `last_classification`, `ended_with` dans la `Session` PB, et (f) si
+  `ended_with !== null` positionne `Session.completed = true` et `Session.end`.
+  Tests d'intégration avec mock PB.
+- **5.4 — Branche dans `addNode` form action.** `src/routes/sessions/[slug=number]/+page.server.ts`
+  detect `Scenario.engine`. Si `'scripted'`, route vers `progressScripted()` au
+  lieu du chemin free. Le retour expose le `next_node` rendu + l'état mis à jour
+  à la page joueur. Test de régression : un scénario `engine: 'free'` continue à
+  fonctionner pixel-pour-pixel.
+- **5.5 — UI joueur scripted.** Nouvelle vue Svelte rendue quand
+  `Scenario.engine === 'scripted'` (à la place de `MainGraph.svelte`). Affiche le
+  texte du noeud courant + input texte du joueur + sidebar (preuves débloquées,
+  scores, actions restantes). Affichage de la fin atteinte. **Supervisé** —
+  vérification visuelle nécessaire, pas de hook auto-test pour le rendu.
+
+**Critère de sortie de la Phase 5** :
+- Une partie complète Helix peut être jouée du début à la fin dans le navigateur
+  jusqu'à `FIN_REUSSITE` (test manuel).
+- Une partie complète 3036 atteint au moins `FIN_CITOYEN_STABLE` et
+  `FIN_EVEILLE` selon les réponses (test manuel).
+- L'état (preuves, scores, actions) est visible et mis à jour en temps réel.
+- Test automatisé : un scénario free joué dans la même session continue à
+  fonctionner.
+- `pnpm test:narrative` reste à 92/92+ (les sous-tâches 5.2-5.3 ajoutent ≥10
+  tests serveur).
+
+### Phase 6 — Endpoint Go `/api/classify` (word2vec)
 
 **Livrable** :
 - `ia_server/webservice/classify.go` : nouveau handler, payload §6.1.
-- `src/lib/server/ia/classify.ts` : client TS.
-- `src/lib/scripted/runtime.ts` : nouveau module exportant `progressScripted(session,
-  playerText)` implémentant §7.2.
-- Branche dans `addNode` form action.
+- `src/lib/server/ia/classify.ts` : client TS qui remplace l'usage du stub TS de
+  Phase 5.2 dans `progressScripted()`.
+- Feature flag d'ENV : `IA_CLASSIFY_BACKEND=stub|word2vec` côté SvelteKit pour
+  basculer entre le stub TS (dev / tests) et le Go word2vec (prod). Le stub n'est
+  **pas** supprimé — il reste l'implémentation par défaut en absence de Go server.
 
 **Critère de sortie** :
-- Test unit du runtime sur Helix : simuler une séquence (N1 → "j'inspecte le terminal"
-  → match N2 → "que dit l'état du vaisseau" → match N2.1 → unlock P1) en mockant
-  l'IA.
 - `/api/classify` retourne une intent + confidence sur un payload de test (test
-  d'intégration Go, sans LLM, juste word2vec).
-- Le bouton "envoyer une contribution" dans `/sessions/<slug_scripted>` produit le
-  bon noeud rendu.
+  d'intégration Go avec word2vec).
+- Une partie complète Helix jouée avec `IA_CLASSIFY_BACKEND=word2vec` produit les
+  mêmes noeuds que le stub sur ≥80% des inputs (corpus de test à monter).
 
-### Phase 4 — UI admin pour scripted scenarios
+### Phase 7 — LLM-backed `/api/classify` (optionnel)
 
-**Livrable** : refonte de `src/routes/admin/scenario/create/` selon §10.1 (au moins
-les étapes 1 à 5 — l'étape 5 reste un upload YAML).
-
-**Critère de sortie** :
-- Un admin peut créer un scénario scripted depuis 0 en uploadant un fixture YAML.
-- L'UI affiche un récap visuel (n noeuds, n preuves, n fins) après import.
-- Tests E2E `pnpm test:unit` couvrent l'import + la validation Zod côté action.
-
-### Phase 5 — Rendu joueur scripted
-
-**Livrable** : `MainGraph.svelte` adapté pour rendre les noeuds visités en arbre
-chrono, sans champ de contribution libre (à la place : un input texte vers
-`progressScripted`). Affichage de l'état (preuves débloquées, actions restantes,
-scores) en sidebar.
-
-**Critère de sortie** :
-- Une partie complète Helix peut être jouée du début à la fin dans le navigateur.
-- L'état (preuves, actions) est visible et mis à jour en temps réel.
-- Test de regression : un scénario free joué dans la même session continue à
-  fonctionner pixel-pour-pixel.
-
-### Phase 6 — LLM-backed `/api/classify` (optionnel)
-
-**Livrable** : `classify.go` ajoute un mode `--backend=llm` qui appelle un LLM externe
-(Claude API, configurable). Garde le mode word2vec en fallback.
+**Livrable** : `classify.go` ajoute un mode `--backend=llm` qui appelle un LLM
+externe (Claude API, configurable). Garde le mode word2vec en fallback.
 
 **Critère de sortie** :
 - Latence < 2s P95 pour un classify.
-- Test A/B : sur un corpus de 50 inputs joueur scriptés à la main, la classification
-  LLM > 90% accuracy vs word2vec ≈ 60% (à valider expérimentalement).
-- Feature flag : `IA_CLASSIFY_BACKEND=word2vec|llm` côté Go.
+- Sur un corpus de 50 inputs joueur scriptés à la main, classification LLM > 90%
+  vs word2vec ≈ 60% (à valider expérimentalement).
+- Feature flag étendu : `IA_CLASSIFY_BACKEND=stub|word2vec|llm`.
 
-### Phase 7+ — Édition visuelle des conditions, statistiques par scénario, multi-joueur scripted
+### Phase 8+ — Édition visuelle des conditions, statistiques par scénario, multi-joueur scripted
 
-Hors-scope pour le moment ; à re-planifier après Phase 6.
+Hors-scope pour le moment ; à re-planifier après Phase 7.
 
 ## 13. Risques et inconnues
 
