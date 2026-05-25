@@ -43,6 +43,7 @@ export interface CompiledScenario {
 	external_id: string;
 	title: string;
 	prologue: string;
+	lang: string;
 	rules: ScenarioRules;
 	characters: CharacterFixture[];
 	evidences: EvidenceFixture[];

@@ -16,7 +16,7 @@ Package manager is **pnpm** (see `packageManager` in `package.json`). Don't subs
 - `pnpm build` then `pnpm preview` — production build via `@sveltejs/adapter-node` and local preview. `pnpm start` runs `./build/index.js`; `pnpm start:remote` runs it with `.env.prod` loaded.
 - `pnpm check` / `pnpm check:watch` — `svelte-kit sync` + `svelte-check` typecheck.
 - `pnpm lint` / `pnpm lint:fix` — ESLint (config in `eslint.config.js`; enforces tabs, single quotes, semicolons, unix linebreaks, and `_`-prefixed unused-var ignore).
-- `pnpm test:unit` — Vitest. Tests live under `tests/units/**/*.test.ts` (see `vitest.config.ts`). Run a single test with `pnpm test:unit tests/units/<name>.test.ts` or filter by name via `-t '<pattern>'`. **Narrative-engine tests live under `tests/units/narrative/` and must be run with an explicit target** (`pnpm test:unit --run tests/units/narrative`) — the legacy `tests/units/scenario.test.ts` imports `$lib/i18n` which Vitest can't resolve, so a `pnpm test:unit` with no target fails. Fix the alias resolution before changing this.
+- `pnpm test:unit` — Vitest. Tests live under `tests/units/**/*.test.ts` (see `vitest.config.ts`). Run a single test with `pnpm test:unit tests/units/<name>.test.ts` or filter by name via `-t '<pattern>'`. **Narrative-engine tests live under `tests/units/narrative/` and must be run with an explicit target** (`pnpm test:unit --run tests/units/narrative`) — the legacy `tests/units/scenario.test.ts` imports `$lib/i18n` which Vitest can't resolve, so a `pnpm test:unit` with no target fails. Fix the alias resolution before changing this. The narrative bucket also contains a mock-PB integration test (`persist-scripted.integration.test.ts`) — it stubs the batch SDK calls, so no live PocketBase is required.
 - `pnpm run ia` — starts the Go AI server (`ia_server/cmd/lauchServer`, port 8000). Requires Go installed. Some word2vec/dictionary resource files are gitignored — see `ia_server/resources/`.
 - PocketBase locally: `docker compose up pocketbase` (port 8090, admin UI at `/_/`). Import the schema from `db/schema.json` via Settings → Import collections on first run.
 
@@ -52,7 +52,7 @@ The `MyPocketBase` interface in `src/types/pocketBase/index.ts` adds typed `coll
 - `(home)` — public landing.
 - `(auth)/login` — login.
 - `sessions/[slug=number]/` — the core session view. `slug` is constrained by `src/params/number.ts`. `+page.server.ts` exposes form actions `addNode`, `addEvent`, `endSession`. `MainGraph.svelte` + `GraphUI/*` render the D3-based contribution tree.
-- `admin/` — admin layout gates on role; subtrees `scenario/create`, `sessions/create`, `user/create`.
+- `admin/` — admin layout gates on role; subtrees `scenario/create`, `scenario/import` (scripted YAML upload), `sessions/create`, `user/create`.
 - `api/ai/health` and `api/ai/newAiSession` — thin proxies to the Go AI server.
 - `design-system/` — internal component gallery.
 
@@ -71,7 +71,8 @@ shadcn-svelte is configured (`components.json`) with aliases pointing into `$lib
 
 Cross-cutting domain helpers live under `src/lib/`:
 
-- `nodes/`, `scenario/`, `sessions.ts` — CRUD/orchestration helpers used by both client and server.
+- `nodes/`, `sessions.ts` — CRUD/orchestration helpers used by both client and server.
+- `scenario/` — mixed: `index.ts` holds the legacy free-engine CRUD (`createScenario`, `createEventsAndEnds`) usable both client- and server-side. The three Phase-4 modules `pb-id.ts`, `validate-references.ts`, `persist-scripted.ts` are **server-only** (they use `pb.createBatch()` with a `MyPocketBase` instance built from the private `DB_URL`) — see the « Scripted narrative engine » section below for the import pipeline.
 - `narrative/` — pure runtime for the **scripted scenario engine** (cf. dedicated section below). Hermetic: never import `$lib/i18n` or any Svelte-dependent code here. Public API via `$lib/narrative` (`parseYaml`, `compile`, `step`, `evaluate`, `applyEffect`, plus runtime types).
 - `server/ia/` — the only IA client code; kept server-side so the private `IA_SERVER_URL` never reaches the bundle.
 - `zschemas/` — Zod schemas used for form-action validation (`addNode.schema`, `createSession.schema`, `event.schema`, `pseudo.schema`, `scenario.schema`, `scripted-scenario.schema` for YAML fixtures, plus an `ia/` subfolder). When adding a form action, write the schema here and `safeParse` before touching the DB. `scripted-scenario.schema` is hermetic — no `svelte-i18n` import.
@@ -94,6 +95,13 @@ Two scenario runtimes coexist, discriminated by `Scenario.engine: 'free' | 'scri
 - `End` gained `condition`, `priority`.
 
 **Scenario fixtures** live in `scenarios/fixtures/*.yaml`. They are the authoring source-of-truth (validated by `scripted-scenario.schema.ts`, compiled at load time by `src/lib/narrative/compile.ts`). Format is specified in `docs/narrative-engine-design.md` §10. Two fixtures ship with the repo: `helix-corp.yaml` and `3036.yaml`.
+
+**Authoring entry point** (Phase 4) — a superAdmin imports a YAML fixture via `/admin/scenario/import` (`src/routes/admin/scenario/import/`). The form-action pipeline is `parseYaml → scriptedScenarioSchema.safeParse → compile → validateReferences → persistCompiledScenario`. The last two steps live in `src/lib/scenario/`:
+
+- `validate-references.ts` walks each `condition`/`effects`/`rules` tree and reports any `external_id` (node / evidence / character / state axis / end) that's not declared in the same fixture.
+- `persist-scripted.ts` pre-generates 15-char `[a-z0-9]` IDs (helper in `pb-id.ts`) for the Scenario + every Character/Evidence/StateAxis/Node/End, then writes the whole graph in a single PocketBase transactional batch (`pb.createBatch()`, SDK 0.26+). A `BatchPersistError` is thrown on partial failure — PB rollbacks the transaction server-side.
+
+Mapping notes (cohabitation with the free schema): `Scenario.firstNodeTitle/Text/Author` is populated from the scripted startNode + uploader id; `Scenario.lang` maps the YAML locale prefix to the PB enum (`fr-FR` → `fr`); `Node.type` is `'startNode'` for `is_start`, `'contribution'` otherwise; `Node.author` is the uploader's id.
 
 When extending the scripted engine, conform to the design doc rather than improvising — if the design feels wrong, propose an edit to the design doc *first*, then implement.
 

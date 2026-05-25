@@ -26,6 +26,7 @@ export function compile(raw: ScriptedScenarioFixture): CompiledScenario {
 		external_id: raw.scenario.external_id,
 		title: raw.scenario.title,
 		prologue: raw.scenario.prologue,
+		lang: raw.scenario.lang,
 		rules: raw.rules,
 		characters: raw.characters,
 		evidences: raw.evidences,

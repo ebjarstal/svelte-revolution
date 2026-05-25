@@ -38,7 +38,26 @@
       "scenarioIsNotValide": "Le scénario n'est pas valide",
       "useAi": "Utiliser l'IA",
       "start": "Commencer",
-      "informations": "Informations"
+      "informations": "Informations",
+      "import": {
+        "title": "Importer un scénario scripté",
+        "description": "Téléverse un fichier YAML conforme au format scripté (cf. docs/narrative-engine-design.md §10.2). Le fichier sera validé, compilé et persisté en base en une transaction.",
+        "fileLabel": "Fichier YAML",
+        "submit": "Importer",
+        "back": "Retour à l'administration",
+        "successTitle": "Scénario importé avec succès",
+        "successCounts": "{nodes} nœuds, {characters} personnages, {evidences} preuves, {stateAxes} axes, {ends} fins",
+        "createSession": "Créer une session avec ce scénario",
+        "importAnother": "Importer un autre fichier",
+        "tab": "Importer YAML",
+        "errorMissingFile": "Aucun fichier sélectionné",
+        "errorUnauthorized": "Seul un superAdmin peut importer un scénario scripté",
+        "errorParse": "Le fichier n'est pas un YAML valide",
+        "errorZod": "Le fichier ne respecte pas le format scripté attendu",
+        "errorCompile": "La compilation du scénario a échoué",
+        "errorRefs": "Des références internes du scénario sont introuvables",
+        "errorPersist": "L'écriture en base a échoué"
+      }
     },
     "user": {
       "createUser": "Créer un utilisateur",
