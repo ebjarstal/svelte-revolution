@@ -10,6 +10,13 @@ Gestes opérationnels pour faire tourner et déployer `babel-revolution`. Pour l
 4. Settings → Application → Batch API → **Enable** (experimental), Max requests = **100**. Sinon `/admin/scenario/import` renvoie 403.
 5. `pnpm install` puis `pnpm dev`.
 
+## Classifieur scripted (`IA_CLASSIFY_BACKEND`)
+
+- Var d'env privée SvelteKit. Valeurs : `stub` (défaut, classifieur TS local) ou `word2vec` (appelle Go `POST /api/classify`). Non set = `stub`.
+- `word2vec` nécessite `ia_server/resources/model.bin` (~plusieurs Go, non versionné). Absent → endpoint répond 503, **rester sur `stub`** en local.
+- Pour switcher : ajouter `IA_CLASSIFY_BACKEND=word2vec` dans `.env.local` (+ `IA_SERVER_URL` set + `pnpm run ia`), puis `pnpm dev`.
+- **3036** : `word2vec` ne pose pas `classification` (CONFORME/…) → nœuds avec `classification_is:` tombent en no-match. Garder `stub` pour 3036 jusqu'à Phase 7 (LLM).
+
 ## Sync schéma PocketBase
 
 - Toute modif de `db/schema.json` (sur main ou ta branche) → réimporter via PB admin. Ajouts additifs : données préservées. Drops : PB prévient avant.
@@ -35,3 +42,4 @@ Gestes opérationnels pour faire tourner et déployer `babel-revolution`. Pour l
 
 - `curl https://<host>/api/ai/health` (skip si `IA_SERVER_URL` non configuré).
 - Login superAdmin → `/admin/scenario/import` → upload `scenarios/fixtures/helix-corp.yaml` → récap doit afficher 4/10/0/47/3 (chars/preuves/axes/nœuds/fins).
+- Acceptance Phase 6 (manuel, non-CI) : jouer Helix de bout en bout sous `IA_CLASSIFY_BACKEND=word2vec` puis rejouer les mêmes inputs sous `stub`, viser ≥80% de chemin de nœuds identique.

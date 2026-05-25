@@ -3,7 +3,7 @@ import { censorNode } from '$lib/server/ia';
 import { createNewEvents, triggerEnd } from '$lib/server/ia/event';
 import { addNodeSchema } from '$lib/zschemas/addNode.schema';
 import { addScriptedTurnSchema } from '$lib/zschemas/scripted-turn.schema';
-import { classifyStub } from '$lib/narrative';
+import { pickClassifier } from '$lib/server/ia/classify';
 import { isScriptedScenario } from '$lib/scenario/engine-dispatch';
 import { progressScripted } from '$lib/scenario/runtime-scripted';
 import PocketBase from 'pocketbase';
@@ -51,7 +51,7 @@ export const actions: Actions = {
 						pb,
 						sessionId,
 						scriptedInput.data.text,
-						classifyStub
+						pickClassifier()
 					);
 					return {
 						status: 200,
