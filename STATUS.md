@@ -84,9 +84,21 @@ Tous les noeuds du PDF Scenario 3036.pdf sont présents :
 - **Helix N7.4 (Directive Helix)** : le PDF dit « après avoir P10 ou P5 ». Encodé `any: [has P5_ACCES_EQUIPAGE, has P10_KIRA_A_ACCES_SUPERIEUR]`.
 
 ## Idées à proposer (hors scope nuit)
-- (Phase 4+) `Node.priority` explicite pour casser les ambiguïtés de specificité (cf. design doc §13.6).
+- (Phase 4+) `Node.priority` explicite pour casser les ambiguïtés de specificité (cf. design doc §13.6). Pas strictement nécessaire vu que `last` + `from` couvrent tous les cas dans les 2 fixtures, mais sera plus pratique pour les futurs auteurs de scénario.
 - (Phase 4+) Encoder l'idée d'« exercice courant » comme champ de Session pour 3036, éviter le pattern un peu lourd de `any: [from N7A, from N7B, ...]` dans les conditions d'ends.
-- (Phase 5+) Une suite de tests « parcours du joueur » plus large que ce que la Phase 3 couvrira (couverture chemins).
+- (Phase 5+) Une suite de tests « parcours du joueur » plus large (couverture chemins, mutation testing sur les conditions).
+
+## Suggestions Phase 4 (à valider au matin)
+1. **Authoring UI vs import YAML** — le design §10.1 propose une refonte de `admin/scenario/create/` en 6 étapes (métadonnées, characters, evidences, axes, graphe via import YAML, fins). Question : on commence par le path le plus simple — un seul bouton « upload fixture YAML » qui appelle `parseYaml` + `scriptedScenarioSchema.parse` + écrit toutes les collections — ou on refactor d'abord l'UI en étapes pour préparer une édition graphique ?
+2. **Persistance multi-collections** — l'import doit créer ~50 records par scénario Helix. À faire dans une transaction PB (`batch.create`) ou séquentiellement ? PB 0.26 supporte `batch()`. Choix d'erreur partielle (rollback vs best-effort) à trancher.
+3. **TriggerNodes** — collection inutilisée gardée pour la nuit (cf. design §13.10). À supprimer définitivement en Phase 4 ? Aucun code applicatif ne la référence d'après `grep -r "TriggerNodes"`.
+4. **Ambigus du fixture 3036** — trois choix conservateurs ont été faits (paliers <33%/33-66%/>66%, mécanisme N_INTERRUPT custom, score_caps {7,12,10}). Avant de coder Phase 4, est-ce qu'Éric / l'auteur des PDFs peut confirmer ces choix sur 1 partie test ?
+5. **Fixture Helix : conditions normalisées en `last`** — j'ai changé certaines conditions de `from` à `last` (cf. ambigus). Si Éric préfère revenir à `from` strict, il faudrait alors ajouter `Node.priority` au schema BD et à `nodeFixtureSchema` Zod (~10 lignes), et annoter chaque sub-noeud / N13.x avec une priorité explicite.
+
+## Phase-reviewer
+Verdict **PASS** (cf. transcript). Aucune action corrective. 2 nits cosmétiques (`.bak` non commité, conventions de spécificité `not` à documenter si jamais utilisé), différés au matin.
 
 ## Journal des commits de la nuit
-*(rempli après chaque commit)*
+- `e356360` feat(phase-1): encoder Helix Corp + 3036 en fixtures YAML + parser hermétique
+- `3767ecc` feat(phase-2): schéma BD scripted + Zod fixture validator + types
+- `6f01be8` feat(phase-3): moteur narratif pur + tests Vitest des parcours canoniques
