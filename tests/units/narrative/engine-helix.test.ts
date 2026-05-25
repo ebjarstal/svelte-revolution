@@ -136,6 +136,28 @@ describe('engine — Helix Corp parcours canoniques', () => {
 		expect(s.ended_with).toBe('FIN_ECHEC_TEMPS');
 	});
 
+	test("actions_left est clampé à 0 — K décrémentations consécutives ne descendent jamais sous zéro", () => {
+		// Helix porte FIN_ECHEC_TEMPS (`lte: 0`) qui termine la session dès actions_left=0.
+		// Pour isoler le clamp on retire cette fin, on force le compteur à 0 puis on
+		// enchaîne plusieurs steps. Sans `Math.max(0, …)`, le compteur descendait
+		// à -1, -2, … (cf. issue : « une fixture future sans FIN_ECHEC_TEMPS verrait
+		// actions_left = -23 »).
+		const helixSansTemps: CompiledScenario = {
+			...helix,
+			ends: helix.ends.filter((e) => e.external_id !== 'FIN_ECHEC_TEMPS')
+		};
+
+		let s = initialState(helixSansTemps);
+		s.actions_left = 0;
+
+		for (let i = 0; i < 5; i++) {
+			s = step(helixSansTemps, s, { intent: 'SYSTEME' }).state;
+			expect(s.actions_left).toBe(0);
+			if (s.ended_with !== null) break;
+		}
+		expect(s.actions_left).toBe(0);
+	});
+
 	test("Précédence : FIN_REUSSITE (30) bat FIN_ECHEC_ACCUSATION (10) à isodate", () => {
 		// Ce cas n'est pas atteignable réellement (un seul N13.x par session)
 		// mais on vérifie quand même que priority décroissante gagne en construisant

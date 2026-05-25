@@ -71,7 +71,7 @@ export function step(
 		for (const effect of chosen.effects ?? []) applyEffect(effect, next);
 		// Le fallback ne consomme pas d'action.
 		if (!fellBack && chosen.consumes_action !== false && next.actions_left !== null) {
-			next.actions_left = next.actions_left - 1;
+			next.actions_left = Math.max(0, next.actions_left - 1);
 		}
 	}
 
