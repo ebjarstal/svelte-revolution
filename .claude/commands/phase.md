@@ -29,6 +29,7 @@ Le hook PostToolUse projet relancera automatiquement `pnpm test:narrative` à ch
    - Mets à jour `STATUS.md` : phase courante → N+1, phase complétée → N (avec tests et fichiers touchés).
    - Si la phase a touché un setting opérationnel (env var, schema BD, nouvelle commande, batch API…), invoque `runbook-keeper` avec un résumé.
    - Si la phase a modifié l'architecture (nouveau module, nouveau collection, nouvelle convention), invoque `claude-md-auditor`.
+   - Si la phase a modifié `scenarios/fixtures/*.yaml` (création ou édition), invoque `fixture-auditor` sur chaque fixture touché (un appel par fixture, en passant le chemin en argument).
    - Propose un message de commit à l'utilisateur (n'exécute pas `git commit` sans son OK).
 5. Si verdict **NEEDS WORK** ou **BLOCKER** : adresse chaque finding cité, ré-invoque le reviewer. **Hard limit : 2 cycles**. Au 3e, escalade à l'utilisateur.
 
