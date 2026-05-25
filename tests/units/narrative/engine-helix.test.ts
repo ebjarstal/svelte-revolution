@@ -158,6 +158,30 @@ describe('engine — Helix Corp parcours canoniques', () => {
 		expect(s.actions_left).toBe(0);
 	});
 
+	test("fallback ne fait PAS avancer current_node — retry possible depuis le même état", () => {
+		// Régression : avant le fix, current_node devenait NF_HESITE après un tour
+		// raté → tous les noeuds qui demandent `last: [N_précédent]` devenaient
+		// inatteignables (cul-de-sac). Désormais le fallback est un rendu UI ; le
+		// state reste figé pour permettre au joueur de retry.
+		let s = initialState(helix);
+		s = step(helix, s, { intent: 'SYSTEME' }).state; // N1 → N2
+		expect(s.current_node).toBe('N2');
+		const stateBeforeFallback = JSON.parse(JSON.stringify(s));
+
+		// Intent invalide qui ne matche aucune candidate depuis N2.
+		const result = step(helix, s, { intent: 'INTENT_INEXISTANT' });
+		expect(result.fell_back).toBe(true);
+		expect(result.next_node?.external_id).toBe('NF_HESITE');
+		// L'état runtime ne bouge pas : current_node reste N2.
+		expect(result.state.current_node).toBe('N2');
+		expect(result.state.visited_nodes).toEqual(stateBeforeFallback.visited_nodes);
+		expect(result.state.actions_left).toBe(stateBeforeFallback.actions_left);
+
+		// Retry immédiat avec un bon intent depuis N2 → atteint le bon noeud.
+		s = step(helix, result.state, { intent: 'LOGS' }).state;
+		expect(s.current_node).toBe('N2.2');
+	});
+
 	test("Précédence : FIN_REUSSITE (30) bat FIN_ECHEC_ACCUSATION (10) à isodate", () => {
 		// Ce cas n'est pas atteignable réellement (un seul N13.x par session)
 		// mais on vérifie quand même que priority décroissante gagne en construisant

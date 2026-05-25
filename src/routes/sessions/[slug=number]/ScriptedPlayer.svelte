@@ -5,6 +5,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import nProgress from 'nprogress';
 
+	import { pb } from '$lib/client/pocketbase';
 	import type {
 		Evidence,
 		GraphNode,
@@ -92,6 +93,7 @@
 				class="flex flex-col gap-3"
 			>
 				<input type="hidden" name="session" value={session.id} />
+				<input type="hidden" name="pb_cookie" value={pb.authStore.exportToCookie()} />
 				<textarea
 					name="text"
 					bind:value={text}

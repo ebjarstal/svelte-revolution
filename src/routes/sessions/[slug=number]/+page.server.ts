@@ -46,6 +46,11 @@ export const actions: Actions = {
 						error: scriptedInput.error.issues.map((e) => e.message).join(', ')
 					});
 				}
+				// Charge le cookie du joueur connecté pour autoriser le PATCH Session côté
+				// PB (updateRule = '@request.auth.id != ""'). Sans ça, persistState() lève
+				// un ClientResponseError 404 silencieux (PB masque les 403 en 404).
+				const pb_cookie = (data.get('pb_cookie') ?? '') as string;
+				if (pb_cookie) pb.authStore.loadFromCookie(pb_cookie);
 				try {
 					const result = await progressScripted(
 						pb,

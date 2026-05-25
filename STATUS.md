@@ -107,21 +107,98 @@ inputs joueur monté à la main avec leur label attendu. Procédure :
 Si <90% précision ou >2s latence, override via `MISTRAL_MODEL=mistral-medium-latest`
 (plus précis, plus lent). Tracé hors workflow phase-gated.
 
+## Playtest manuel — 2026-05-26 (FIN_CITOYEN_STABLE atteint en 3036 sous `llm`)
+
+Première partie 3036 jouée de bout en bout avec `IA_CLASSIFY_BACKEND=llm`
++ Mistral `mistral-small-latest`. Atteinte `FIN_CITOYEN_STABLE` (scores
+conformite=6/7 eleve, creativite=1/12 faible, eveil=0/10 faible). Acceptance
+gate Phase 5 validée sur 3036. Helix non encore replayé en manuel — couvert
+par le playtest automatisé `playtest-helix.test.ts`.
+
+**Bugs trouvés et corrigés en cours de playtest** :
+
+1. **Phase 5 — ScriptedPlayer ne transmettait pas `pb_cookie`** : `addNode`
+   scripted créait un `new PocketBase(DB_URL)` non authentifié → `Session.update`
+   tombait en 404 (updateRule = `@request.auth.id != ""`). Fix : ajout
+   `<input type="hidden" name="pb_cookie" ... />` + `loadFromCookie` côté
+   serveur, aligné avec le pattern `addEvent`/`endSession`.
+
+2. **Phase 5 — engine.step écrasait `current_node` après un fallback** :
+   après un tour mal classifié (intent non reconnu), `current_node` devenait
+   le fallback (NF_REFORMULE/NF_HESITE), rendant les noeuds dépendant de
+   `last: [N_précédent]` inatteignables → cul-de-sac irrécupérable. Fix :
+   le fallback est désormais traité comme un rendu UI (next_node retourné)
+   sans avancer l'état canonique. Test de régression ajouté.
+
+3. **Phase 7 — Mistral confond `intent` et `classification`** sur les
+   scénarios à taxonomie (3036) : avec `prompt_ia` qui décrit RIEN/CONFORME/
+   CREATIF/EVEIL, le LLM pose le label dans `intent` au lieu de
+   `classification`. Le validateur Go rejetait alors comme "hallucinated
+   intent" → fallback word2vec → 503 (word2vec indisponible). Fix : si
+   l'intent renvoyé n'est pas dans la liste mais appartient à la taxonomie
+   connue (KNOWN_CLASSIFICATIONS), le réinterpréter comme `classification`.
+
+4. **Fixture 3036 — N4A n'avait pas d'intents structurés** : conditions
+   `intent_in: [CHOIX_A/CHOIX_B/REFUS_CHOIX]` mais aucun intent déclaré
+   dans le YAML → labels inclassifiables. Fix : ajout des trois intents
+   sur N4A dans `scenarios/fixtures/3036.yaml`.
+
+## Findings playtest non-bloquants (à investiguer)
+
+- **Fixture 3036 — incohérence texte/prompt_ia sur N4A** : le `texte` invite
+  à choisir entre deux phrases (Phrase A / Phrase B), mais le `prompt_ia`
+  `&opinionEvaluator` attend une opinion sur les droits IA/humains. Le
+  joueur doit "deviner" qu'il faut répondre à autre chose que ce que le
+  texte indique. Suggérer à l'auteur PDF de réécrire soit le texte, soit
+  le prompt_ia.
+
+- **`Session.end` reste vide silencieusement** quand `End.external_id` est
+  absent en BD (mapping `endPbIdByExternalId.get(...) === undefined`).
+  `persistState` set `completed=true` mais ne pose pas `end`, sans
+  warning. Si les Ends d'un scénario sont importés avant Phase 5, les
+  parties terminées ne peuvent pas afficher leur fin. À durcir : logger
+  un warning explicite quand le mapping est manquant.
+
+- **`End.external_id` ne persistent pas après PATCH manuel** sur certains
+  Ends. Cause non identifiée — peut-être un side-effect d'un autre flow,
+  un cache PB, ou un mécanisme silencieux. À ré-investiguer avec un docker
+  restart propre. Workaround : re-patcher manuellement (script Python
+  dans la conversation 2026-05-26).
+
+- **`actions_left: null` → stocké 0 en BD** pour les scénarios sans
+  compteur (3036). PB convertit `null` en `0` sur les champs `number`
+  non-`required`. Pas bloquant pour 3036 (aucune fin ne dépend
+  d'actions_left), mais induit en erreur visuellement (UI affiche
+  "Actions remaining: 0"). À nettoyer côté schema (rendre nullable
+  explicite) ou côté UI (ne pas afficher si null).
+
+- **Mistral est non-déterministe même à température=0** : sur la
+  question opinion IA/humains, première soumission a renvoyé
+  `intent=HESITER`, deuxième soumission (identique) `intent=ACCEPT +
+  classification=CONFORME`. Le fix engine "fallback ne fait pas avancer
+  l'état" rend le retry sans coût.
+
 ## Ambigus non résolus (à valider en playtest)
-- **3036 paliers `<33% / 33-66% / >66%`** sur `score_caps {conformite:7, creativite:12, eveil:10}` (Phase 1).
-- **3036 mécanisme `N_INTERRUPT`** custom (Phase 1).
-- **Stub classifieur 3036** : matching CONFORME/NON_CONFORME via descripteurs (Phase 5).
-- **Critère de sortie Phase 5 non automatisé** : partie complète Helix / 3036 (Phase 5).
-- **Critère Phase 6 ≥80% match stub** : voir section dédiée ci-dessus.
+- **3036 paliers `<33% / 33-66% / >66%`** sur `score_caps {conformite:7, creativite:12, eveil:10}` (Phase 1) — validés une fois en playtest, mais d'autres parcours restent à tester (FIN_EVEILLE, FIN_REEDUCATION).
+- **3036 mécanisme `N_INTERRUPT`** custom (Phase 1) — pas joué.
+- **Stub classifieur 3036** : matching CONFORME/NON_CONFORME via descripteurs (Phase 5) — confirmé inadéquat (cf. design Phase 7), garder `stub` seulement pour Helix hors-ligne.
+- **Critère §12 Phase 5 non automatisé sur Helix manuel** : playtest auto OK mais pas de partie manuelle dans le navigateur.
+- **Critère Phase 6 ≥80% match stub** : non testé (word2vec model.bin indisponible localement).
 
 ## Dette ops
 - **End.external_id** ajouté en Phase 5. Réimporter les scénarios scripted via
-  `/admin/scenario/import` pour les peupler.
+  `/admin/scenario/import` pour les peupler. À investiguer pourquoi le patch
+  manuel via PB API ne persiste pas dans certains cas.
 - **Pas de classification 3036 côté `word2vec`** : `classifyWord2vec` ne pose
   jamais `classification`, donc les noeuds 3036 qui filtrent par `classification_is:`
   tombent en fallback no-match sous ce backend. Résolu en Phase 7 côté `llm`
   (Mistral pose `classification` quand le `prompt_ia` du nœud invoque la
   taxonomie). Pour 3036 hors-ligne, garder `stub`.
+- **word2vec model.bin incompatible** : `[Warning] failed to load word2vec
+  model from ./resources/model.bin: expected integer`. Le fichier local
+  n'est pas au format attendu par `word2vec.FromReader`. Conséquence :
+  fallback word2vec inopérant, si le LLM échoue → 503 → no-match. À
+  régénérer ou télécharger un modèle compatible.
 
 ## Prochaine étape
 Phase 7 livrée. Plus de phase planifiée dans `docs/narrative-engine-design.md` §12 :

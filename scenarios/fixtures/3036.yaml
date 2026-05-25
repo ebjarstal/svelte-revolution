@@ -410,6 +410,19 @@ nodes:
   - external_id: N4A
     titre: "CHOIX A"
     consumes_action: false
+    # Les labels CHOIX_A/CHOIX_B/REFUS_CHOIX sont mentionnés dans le `prompt_ia`
+    # &comparaisonEvaluator (sur N3A/B/C) mais doivent aussi être déclarés en
+    # intents structurés pour que le moteur les expose au classifier — sinon les
+    # conditions `intent_in: [CHOIX_A]` ne reçoivent jamais le label correspondant
+    # et N4A/B/C deviennent inatteignables. Cf. design §6.3 + `collectAllIntents`
+    # qui agrège l'union dédupliquée du scénario.
+    intents:
+      - label: CHOIX_A
+        description: "le joueur choisit le citoyen A ou répond favorablement à A"
+      - label: CHOIX_B
+        description: "le joueur choisit le citoyen B ou répond favorablement à B"
+      - label: REFUS_CHOIX
+        description: "le joueur refuse de choisir, critique l'exercice, conteste la consigne"
     texte: |
       Correct.
 

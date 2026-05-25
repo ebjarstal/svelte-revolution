@@ -148,6 +148,49 @@ func TestClassifyLLM_BrokenContentJSON(t *testing.T) {
 	}
 }
 
+func TestClassifyLLM_RescuesClassificationFromIntentField(t *testing.T) {
+	// Cas observé sur 3036 : Mistral confond intent et classification quand le
+	// prompt_ia décrit une taxonomie. Plutôt que d'échouer, on récupère le label
+	// vers `Classification` si présent dans la taxonomie connue.
+	srv := stubMistralServer(t, func(req mistralRequest) (int, string, string) {
+		return 200, `{"intent":"RIEN","confidence":0.95,"rationale":"le joueur ne veut rien ajouter","classification":""}`, ""
+	})
+	defer srv.Close()
+
+	intents := []IntentDecl{{Label: "ACCEPT", Description: "accepte"}, {Label: "HESITER", Description: "hésite"}}
+	res, err := ClassifyLLM(context.Background(), srv.Client(), srv.URL, "mistral-small-latest", "k", "Non.", "ctx avec RIEN/CONFORME/CREATIF/EVEIL", intents)
+	if err != nil {
+		t.Fatalf("expected rescue, got error: %v", err)
+	}
+	if res.Intent != "" {
+		t.Errorf("expected intent cleared after rescue, got %q", res.Intent)
+	}
+	if res.Classification != "RIEN" {
+		t.Errorf("expected classification=RIEN after rescue, got %q", res.Classification)
+	}
+}
+
+func TestClassifyLLM_RescueDoesNotOverrideExistingClassification(t *testing.T) {
+	srv := stubMistralServer(t, func(req mistralRequest) (int, string, string) {
+		// Mistral pose à la fois intent=RIEN (hors liste) ET classification=CONFORME.
+		// On préserve la classification déjà posée et on ne fait que vider l'intent.
+		return 200, `{"intent":"RIEN","confidence":0.9,"rationale":"r","classification":"CONFORME"}`, ""
+	})
+	defer srv.Close()
+
+	intents := []IntentDecl{{Label: "ACCEPT", Description: "x"}}
+	res, err := ClassifyLLM(context.Background(), srv.Client(), srv.URL, "mistral-small-latest", "k", "Non.", "ctx", intents)
+	if err != nil {
+		t.Fatalf("ClassifyLLM: %v", err)
+	}
+	if res.Intent != "" {
+		t.Errorf("expected intent cleared, got %q", res.Intent)
+	}
+	if res.Classification != "CONFORME" {
+		t.Errorf("expected classification preserved as CONFORME, got %q", res.Classification)
+	}
+}
+
 func TestClassifyLLM_RejectsHallucinatedIntent(t *testing.T) {
 	srv := stubMistralServer(t, func(req mistralRequest) (int, string, string) {
 		// le modèle renvoie un label qui n'est pas dans la liste candidate

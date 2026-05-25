@@ -64,14 +64,19 @@ export function step(
 	next.last_classification = input.classification ?? null;
 
 	if (chosen) {
-		next.current_node = chosen.external_id;
-		if (!next.visited_nodes.includes(chosen.external_id)) {
-			next.visited_nodes.push(chosen.external_id);
-		}
-		for (const effect of chosen.effects ?? []) applyEffect(effect, next);
-		// Le fallback ne consomme pas d'action.
-		if (!fellBack && chosen.consumes_action !== false && next.actions_left !== null) {
-			next.actions_left = Math.max(0, next.actions_left - 1);
+		// Le fallback est un rendu UI uniquement — il NE doit PAS faire avancer l'état
+		// canonique (sinon `current_node` devient le fallback, et tous les noeuds qui
+		// dépendent de `last: [N_précédent]` deviennent inatteignables → cul-de-sac).
+		// Le caller récupère le fallbackNode via `next_node` pour rendre son texte.
+		if (!fellBack) {
+			next.current_node = chosen.external_id;
+			if (!next.visited_nodes.includes(chosen.external_id)) {
+				next.visited_nodes.push(chosen.external_id);
+			}
+			for (const effect of chosen.effects ?? []) applyEffect(effect, next);
+			if (chosen.consumes_action !== false && next.actions_left !== null) {
+				next.actions_left = Math.max(0, next.actions_left - 1);
+			}
 		}
 	}
 

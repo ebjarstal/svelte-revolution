@@ -23,6 +23,20 @@ import (
 // par le caller (et c'est exactement ce que font les tests via httptest).
 const MistralEndpoint = "https://api.mistral.ai/v1/chat/completions"
 
+// knownClassifications : taxonomie scénario 3036 (et générique). Sert au filet
+// de rattrapage quand Mistral pose un de ces labels dans `intent` au lieu de
+// `classification`. Garder synchronisé avec
+// src/lib/narrative/classify-stub.ts:KNOWN_CLASSIFICATIONS.
+var knownClassifications = map[string]bool{
+	"CONFORME":       true,
+	"NON_CONFORME":   true,
+	"CRITIQUE":       true,
+	"NON_COOPERATIF": true,
+	"RIEN":           true,
+	"CREATIF":        true,
+	"EVEIL":          true,
+}
+
 // Format de réponse attendu du LLM (parsé depuis `choices[0].message.content`).
 type llmIntentJSON struct {
 	Intent         string  `json:"intent"`
@@ -151,11 +165,22 @@ func ClassifyLLM(
 		return IntentResult{}, fmt.Errorf("classify-llm: decode message content as JSON: %w (content=%s)", err, truncate(content, 200))
 	}
 
-	// Valide que l'intent renvoyé fait partie de la liste demandée — sinon le LLM
-	// hallucine un label et le runtime SvelteKit produira un no-match silencieux.
-	// On laisse passer "" (signal explicite de no-match), mais pas un label inventé.
+	// Valide que l'intent renvoyé fait partie de la liste demandée. Cas observé sur
+	// 3036 : quand le `prompt_ia` décrit une taxonomie de classification (CONFORME,
+	// NON_CONFORME, CRITIQUE, NON_COOPERATIF, RIEN, CREATIF, EVEIL), Mistral confond
+	// régulièrement les concepts et pose le label dans `intent` au lieu de
+	// `classification`. Au lieu d'échouer (qui force le fallback word2vec, lui-même
+	// souvent indisponible), on réinterprète l'intent comme classification quand il
+	// appartient à la taxonomie connue. Sinon le label est vraiment inventé : erreur.
 	if parsed.Intent != "" && !labelInList(parsed.Intent, intents) {
-		return IntentResult{}, fmt.Errorf("classify-llm: model returned unknown intent %q (allowed=%v)", parsed.Intent, labelList(intents))
+		if knownClassifications[parsed.Intent] {
+			if parsed.Classification == "" {
+				parsed.Classification = parsed.Intent
+			}
+			parsed.Intent = ""
+		} else {
+			return IntentResult{}, fmt.Errorf("classify-llm: model returned unknown intent %q (allowed=%v)", parsed.Intent, labelList(intents))
+		}
 	}
 
 	conf := clampConfidence(parsed.Confidence)
