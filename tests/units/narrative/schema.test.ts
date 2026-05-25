@@ -129,4 +129,21 @@ describe('Phase 2 — Zod scripted-scenario.schema', () => {
 			expect(msg).toContain('warnings');
 		}
 	});
+
+	test('rejet condition: {} au niveau noeud (typo style « form » vs « from »)', () => {
+		const result = scriptedScenarioSchema.safeParse(wrapCondition({}));
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const msg = JSON.stringify(result.error.issues);
+			expect(msg).toContain('at least one predicate');
+		}
+	});
+
+	test('accepte condition imbriquée vide dans un combinateur (sémantique « toujours vraie »)', () => {
+		const ok = wrapCondition({ all: [{}, { from: 'N1' }] });
+		// Ajoute le noeud N1 référencé pour que le schema (qui ne valide pas les refs) reste cohérent ;
+		// le but est de prouver que la branche `all: [{}]` ne se fait pas refuser par le refine top-level.
+		const result = scriptedScenarioSchema.safeParse(ok);
+		expect(result.success).toBe(true);
+	});
 });

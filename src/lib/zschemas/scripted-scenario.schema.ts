@@ -67,6 +67,13 @@ export type Condition = {
 	warnings?: { gte?: number; lte?: number; eq?: number };
 };
 
+// Refine appliqué uniquement au niveau `node.condition` / `end.condition` : refuse
+// `condition: {}` (piège typo style « form » au lieu de « from »). Pas posé sur la
+// définition récursive de `conditionSchema` car le moteur tolère qu'un enfant de
+// `all`/`any`/`not` n'apporte aucun prédicat (`evaluate({}, ctx)` = true, spécificité 0).
+const nonEmptyConditionRefine = (c: Condition): boolean => Object.keys(c).length > 0;
+const nonEmptyConditionMessage = 'condition must contain at least one predicate';
+
 export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
 	z
 		.object({
@@ -148,7 +155,9 @@ export const nodeFixtureSchema = z
 		consumes_action: z.boolean().optional(),
 		prompt_ia: z.string().optional(),
 		intents: z.array(intentDeclSchema).optional(),
-		condition: conditionSchema.optional(),
+		condition: conditionSchema
+			.refine(nonEmptyConditionRefine, { message: nonEmptyConditionMessage })
+			.optional(),
 		effects: z.array(effectSchema).optional()
 	})
 	.strict();
@@ -159,7 +168,9 @@ export const endFixtureSchema = z
 		title: z.string(),
 		priority: z.number(),
 		text: z.string(),
-		condition: conditionSchema.optional()
+		condition: conditionSchema
+			.refine(nonEmptyConditionRefine, { message: nonEmptyConditionMessage })
+			.optional()
 	})
 	.strict();
 
