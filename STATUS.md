@@ -1,22 +1,27 @@
 # STATUS — 2026-05-25
 
 ## Phase courante
-Phase 2 terminée. Phase 3 démarrage.
+Phases 1, 2 et 3 terminées.
 
 ## Dernière étape complétée
 - **Phase 1** : 2 fixtures YAML encodées, parseur YAML hermétique, 15 tests PASS.
-- **Phase 2** : schema BD patché, Zod schema créé, types TS étendus.
-  - `db/schema.json` : +3 collections (Characters, Evidences, StateAxes), Scenario +5 champs, Node +8 champs, Session +8 champs, End +2 champs. `Node.session` rendu optionnel (scripted nodes appartiennent au scénario, pas à une session). `TriggerNodes` gardée (à supprimer plus tard).
-  - `src/lib/zschemas/scripted-scenario.schema.ts` : Zod hermétique (pas d'import `$lib/i18n` ni `scenario.schema`), valide les 2 fixtures.
-  - `src/types/pocketBase/TableTypes.d.ts` : interfaces Character, Evidence, StateAxis ; Scenario/Node/Session/End étendus avec champs optionnels.
-  - `src/types/pocketBase/index.ts` : `MyPocketBase` étendu avec les 3 nouvelles collections.
+- **Phase 2** : schema BD patché, Zod schema créé, types TS étendus, 4 tests PASS.
+- **Phase 3** : moteur narratif pur dans `src/lib/narrative/`.
+  - `types.ts` : `SessionState`, `CompiledScenario`, `PlayerInput`, `StepResult`, `initialState`.
+  - `compile.ts` : indexation du fixture en `CompiledScenario` (nodesById/endsById/startNode).
+  - `conditions.ts` : évaluateur DSL §4 avec calcul de spécificité (somme pour `all`, max-of-winning pour `any`).
+  - `effects.ts` : applicateur DSL §5 (unlock / score / warnings / actions / set_classification / end).
+  - `engine.ts` : `step()` runtime §7.2 (candidats → tri par spécificité → effets → décrément action → eval ends).
+  - `index.ts` : point d'entrée public hermétique (aucun import vers `$lib/i18n` ni autre zschema).
+- Conditions du fixture Helix ajustées : `from N1/N3/N13` → `last [N1]` / `last [N3, N3.1, N3.2]` / `last [N13]` pour les transitions directes, afin d'éviter les ties de spécificité entre noeud et sa propre branche. N3 simplifié à `intent_in: [EQUIPAGE]` car toujours accessible.
+- Tests engine : 16 tests `conditions.test.ts` (chaque prédicat + combinateurs), 7 tests `engine-helix.test.ts` (parcours minimal, preuves, équipage, FIN_REUSSITE, FIN_ECHEC_ACCUSATION, FIN_ECHEC_TEMPS, précédence), 8 tests `engine-3036.test.ts` (FIN_CITOYEN_STABLE, FIN_EVEILLE, FIN_INTERROMPUE, FIN_SURVEILLANCE_LEGERE, FIN_REEDUCATION_EXPRESSIVE, score levels, précédence interruption).
 
 ## Prochaine étape
-Phase 3 : moteur narratif pur dans `src/lib/narrative/` (DSL evaluator, condition predicates, effects, end selector, runtime step). Tests Vitest qui rejouent les parcours canoniques des 2 fixtures.
+*(rien — Phase 3 terminée. Avant de m'arrêter : invoquer phase-reviewer, mettre à jour STATUS.md final, proposer points Phase 4.)*
 
 ## Tests
 - `pnpm check` : ✅ 0 errors (3 warnings pré-existants ignorés).
-- `pnpm test:unit --run tests/units/narrative` : ✅ 19/19 PASS (15 Phase 1 + 4 Phase 2).
+- `pnpm test:unit --run tests/units/narrative` : ✅ **50/50 PASS** (5 fichiers).
 - `pnpm test:unit --run` (sans cible) : ❌ pré-existant `scenario.test.ts` (hors scope, non touché).
 
 ## Audit nœuds Helix Corp (PDF vs encodé)

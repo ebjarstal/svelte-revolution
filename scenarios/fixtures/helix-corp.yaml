@@ -150,7 +150,7 @@ nodes:
         description: "le joueur cherche qui avait accès, qui pouvait faire ça"
     condition:
       all:
-        - from: N1
+        - last: [N1]
         - intent_in: [COMPRENDRE, SYSTEME]
 
   # ──────────────────────────────────────────────
@@ -347,13 +347,7 @@ nodes:
       - label: KIRA
         description: "le joueur veut parler à l'agent Helix, à Kira, à la sécurité"
     condition:
-      any:
-        - all:
-            - from: N1
-            - intent_in: [EQUIPAGE]
-        - all:
-            - from: N2
-            - intent_in: [EQUIPAGE]
+      intent_in: [EQUIPAGE]
 
   # ──────────────────────────────────────────────
   # NOEUD 3.1 — QUESTION À TOUT LE MONDE
@@ -441,7 +435,7 @@ nodes:
         description: "le joueur suspecte ou accuse Nolan"
     condition:
       all:
-        - from: N3
+        - last: [N3, N3.1, N3.2]
         - target: nolan
 
   # ──────────────────────────────────────────────
@@ -617,7 +611,7 @@ nodes:
         description: "le joueur montre une preuve à Elina"
     condition:
       all:
-        - from: N3
+        - last: [N3, N3.1, N3.2]
         - target: elina
 
   # ──────────────────────────────────────────────
@@ -796,7 +790,7 @@ nodes:
         description: "le joueur montre une preuve à Arman"
     condition:
       all:
-        - from: N3
+        - last: [N3, N3.1, N3.2]
         - target: arman
 
   # ──────────────────────────────────────────────
@@ -973,7 +967,7 @@ nodes:
         description: "le joueur montre une preuve précise à Kira"
     condition:
       all:
-        - from: N3
+        - last: [N3, N3.1, N3.2]
         - target: kira
 
   # ──────────────────────────────────────────────
@@ -1171,7 +1165,7 @@ nodes:
         description: "le joueur observe la cabine, le vaisseau, l'ambiance, sans cible précise"
     condition:
       all:
-        - from: N1
+        - last: [N1]
         - intent_in: [OBSERVER]
 
   # ──────────────────────────────────────────────
@@ -1362,7 +1356,7 @@ nodes:
       Le temps continue de filer.
     condition:
       all:
-        - from: N13
+        - last: [N13]
         - target: nolan
 
   # ──────────────────────────────────────────────
@@ -1388,7 +1382,7 @@ nodes:
       "Et quelqu'un ici préfère visiblement enterrer les choses."
     condition:
       all:
-        - from: N13
+        - last: [N13]
         - target: elina
 
   # ──────────────────────────────────────────────
@@ -1409,7 +1403,7 @@ nodes:
       Pourquoi voudrais-je mener un équipage de 4 personnes à leur perte ?"
     condition:
       all:
-        - from: N13
+        - last: [N13]
         - target: arman
 
   # ──────────────────────────────────────────────
@@ -1433,7 +1427,7 @@ nodes:
       "Continue ton enquête."
     condition:
       all:
-        - from: N13
+        - last: [N13]
         - target: kira
         - has_count_among:
             ids: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
@@ -1470,7 +1464,7 @@ nodes:
     prompt_ia: "déclencher si le joueur accuse Kira en s'appuyant sur directive Helix, accès supérieur, logs masqués ou verrouillage sécurité."
     condition:
       all:
-        - from: N13
+        - last: [N13]
         - target: kira
         - has_all: [P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR]
         - has_any: [P2_ACCES_0307, P3_LOGS_EFFACES, P4_AUTORISATION_MULTIPLE]
