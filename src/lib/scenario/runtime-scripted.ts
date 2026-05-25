@@ -19,6 +19,7 @@
 // `import type`). Les imports type passent par `$lib` sans souci, ils sont strippés.
 import { compile, step } from '../narrative';
 import type {
+	CharacterFixture,
 	ClassifyResult,
 	CompiledScenario,
 	Condition,
@@ -56,7 +57,15 @@ export async function progressScripted(
 
 	const currentNode =
 		state.current_node !== null ? bundle.compiled.nodesById.get(state.current_node) ?? null : null;
-	const intents = (currentNode?.intents ?? []) as IntentDecl[];
+	// Union dédupliquée des intents déclarés par TOUS les noeuds du scénario (cf. design
+	// doc §7.2.4 « intents[] = union des intents déclarés par les candidates »). Passer
+	// uniquement `currentNode.intents` rendait inatteignable tout intent porté par un
+	// candidat d'un autre noeud — typiquement `ACCUSER_FINAL` qui n'est déclaré que sur
+	// N13 (Helix), donc impossible à classifier depuis N4/N5/N6/N7 (PNJ). Le
+	// super-ensemble est plus large que ce que dit le design (qui filtre les candidates
+	// par leurs autres conditions), mais reste correct : un intent non utilisable par
+	// le current_node sera simplement ignoré par `step()` lors du filtrage.
+	const intents = collectAllIntents(bundle.compiled);
 	const promptIa = currentNode?.prompt_ia ?? '';
 
 	const classification = await classifier(playerText, promptIa, intents);
@@ -64,7 +73,8 @@ export async function progressScripted(
 	const result = step(bundle.compiled, state, {
 		text: playerText,
 		intent: classification.intent || undefined,
-		classification: classification.classification
+		classification: classification.classification,
+		target: detectTarget(playerText, bundle.compiled.characters)
 	});
 
 	await persistState(pb, sessionId, result.state, bundle);
@@ -251,3 +261,48 @@ async function persistState(
 // Recompile à partir d'un fixture déjà parsé — exposé pour les tests d'intégration.
 // (Le chemin de production passe par `loadScenarioBundle` qui lit la BD.)
 export { compile as compileFromFixture };
+
+// ─── Collecte d'intents (union scénario complet) ─────────────────────────────
+//
+// Dédoublonne par `label`. Si plusieurs noeuds déclarent le même label avec des
+// descriptions différentes, la PREMIÈRE description gagne (ordre de déclaration
+// dans le YAML). Heuristique acceptable : les fixtures actuelles dupliquent les
+// labels (ex. `COMPRENDRE` apparaît sur N1, N2, N4, N5, N6, N7) avec des
+// descriptions adaptées au contexte, mais le pool keywords stub agrégé reste
+// pertinent quel que soit le noeud courant.
+export function collectAllIntents(compiled: CompiledScenario): IntentDecl[] {
+	const seen = new Map<string, IntentDecl>();
+	for (const node of compiled.nodes) {
+		for (const intent of node.intents ?? []) {
+			if (!seen.has(intent.label)) seen.set(intent.label, intent as IntentDecl);
+		}
+	}
+	return Array.from(seen.values());
+}
+
+// ─── Détection du `target` (PNJ ciblé par le joueur) ─────────────────────────
+//
+// Les conditions `target: <character>` (cf. design doc §4 — Helix N4/N5/N6/N7,
+// N13.x) requièrent que le moteur connaisse quel PNJ le joueur adresse. L'UI
+// joueur (`ScriptedPlayer.svelte`) est un simple textarea, sans sélecteur de
+// cible — il faut donc déduire le target depuis le texte. On matche par
+// présence du `external_id` ou du prénom (premier mot de `name`) en tokens
+// distincts. L'ordre du YAML départage les ambiguïtés (cas rare).
+export function detectTarget(
+	text: string,
+	characters: CharacterFixture[]
+): string | undefined {
+	if (!text || characters.length === 0) return undefined;
+	const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+	const tokens = new Set(
+		norm(text)
+			.split(/[^a-z0-9_]+/)
+			.filter((t) => t.length >= 2)
+	);
+	for (const c of characters) {
+		if (tokens.has(norm(c.external_id))) return c.external_id;
+		const firstName = norm(c.name).split(/\s+/)[0];
+		if (firstName.length >= 3 && tokens.has(firstName)) return c.external_id;
+	}
+	return undefined;
+}

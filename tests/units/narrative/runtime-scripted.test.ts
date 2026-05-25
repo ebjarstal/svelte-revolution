@@ -10,6 +10,8 @@ import { describe, expect, test, vi } from 'vitest';
 import { compile, initialState, parseYaml } from '../../../src/lib/narrative';
 import { scriptedScenarioSchema } from '../../../src/lib/zschemas/scripted-scenario.schema';
 import {
+	collectAllIntents,
+	detectTarget,
 	loadScenarioBundle,
 	progressScripted,
 	readStateFromSession,
@@ -295,7 +297,7 @@ describe('progressScripted', () => {
 		};
 	}
 
-	test('appelle le classifier avec prompt_ia + intents du noeud courant', async () => {
+	test('appelle le classifier avec prompt_ia du noeud courant + union des intents du scénario', async () => {
 		const ctx = mockPbFromCompiled({
 			compiled: helix,
 			session: startSession(helix, mockBridge(helix))
@@ -312,9 +314,14 @@ describe('progressScripted', () => {
 		expect(classifier).toHaveBeenCalledTimes(1);
 		const [text, prompt, intents] = classifier.mock.calls[0]!;
 		expect(text).toBe('je veux comprendre');
-		// Le noeud de départ Helix (N1) a un prompt_ia et des intents structurés.
+		// Le prompt_ia reste celui du noeud courant (N1 = startNode).
 		expect(prompt).toBe(helix.startNode!.prompt_ia ?? '');
-		expect(intents).toEqual(helix.startNode!.intents ?? []);
+		// Phase 7+ : la liste d'intents est l'union dédupliquée du scénario complet
+		// (cf. design §7.2.4 et fix runtime-scripted), pas seulement N1.intents.
+		// On vérifie qu'ACCUSER_FINAL (déclaré uniquement sur N13) est bien proposé
+		// dès le premier tour — sinon il serait inatteignable pour le classifier.
+		expect(intents).toEqual(collectAllIntents(helix));
+		expect(intents.map((i) => i.label)).toContain('ACCUSER_FINAL');
 	});
 
 	test('persiste current_node sous forme de PB id (relation), pas d\'external_id', async () => {
@@ -467,6 +474,53 @@ describe('progressScripted', () => {
 // ─── Helper local : reconstruit le bridge external_id → PB id depuis un compiled ─
 // Doit utiliser le MÊME schéma de PB id que `mockPbFromCompiled` ci-dessus (compteur
 // par séquence). Sinon, le `Session.current_node` initial ne sera pas résoluble.
+
+describe('detectTarget — déduction du PNJ ciblé depuis le texte joueur', () => {
+	const helix = [
+		{ external_id: 'nolan', name: 'Nolan Reyes' },
+		{ external_id: 'elina', name: 'Dr Elina Voss' },
+		{ external_id: 'arman', name: 'Arman Delaunay' },
+		{ external_id: 'kira', name: 'Kira Solis' }
+	];
+
+	test('match sur external_id', () => {
+		expect(detectTarget('je parle à kira', helix)).toBe('kira');
+		expect(detectTarget('Demande à nolan ce qu\'il sait', helix)).toBe('nolan');
+	});
+
+	test('match sur prénom (premier mot de name)', () => {
+		expect(detectTarget('Je confronte Kira avec les preuves', helix)).toBe('kira');
+		// Le premier mot d'Elina est "Dr" — exclu (<3 chars dans le helper) ; le matcher
+		// retombe sur le external_id "elina" si présent dans le texte.
+		expect(detectTarget('Je parle à Elina', helix)).toBe('elina');
+	});
+
+	test('insensibilité à la casse et aux diacritiques', () => {
+		expect(detectTarget('KIRA, vous êtes responsable', helix)).toBe('kira');
+		expect(detectTarget('Élina, qu\'en penses-tu ?', helix)).toBe('elina');
+	});
+
+	test('aucun match → undefined', () => {
+		expect(detectTarget('je regarde le terminal', helix)).toBeUndefined();
+		expect(detectTarget('', helix)).toBeUndefined();
+		expect(detectTarget('je parle à quelqu\'un', helix)).toBeUndefined();
+	});
+
+	test('ordre du YAML départage les ambiguïtés', () => {
+		// Si plusieurs PNJ sont mentionnés, c'est le premier déclaré (nolan) qui gagne.
+		expect(detectTarget('Nolan et Kira se regardent', helix)).toBe('nolan');
+	});
+
+	test('liste characters vide → undefined sans crasher', () => {
+		expect(detectTarget('texte avec kira', [])).toBeUndefined();
+	});
+
+	test('ne matche pas un substring (word boundary)', () => {
+		// "kirate" contient "kira" en substring mais c'est un autre mot — un Set de
+		// tokens distincts ne le pose pas comme match.
+		expect(detectTarget('je fais du kirate', helix)).toBeUndefined();
+	});
+});
 
 function mockBridge(compiled: CompiledScenario) {
 	const mkId = (prefix: string, i: number) => prefix + String(i).padStart(11, '0');
