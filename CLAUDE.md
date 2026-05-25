@@ -16,7 +16,7 @@ Package manager is **pnpm** (see `packageManager` in `package.json`). Don't subs
 - `pnpm build` then `pnpm preview` — production build via `@sveltejs/adapter-node` and local preview. `pnpm start` runs `./build/index.js`; `pnpm start:remote` runs it with `.env.prod` loaded.
 - `pnpm check` / `pnpm check:watch` — `svelte-kit sync` + `svelte-check` typecheck.
 - `pnpm lint` / `pnpm lint:fix` — ESLint (config in `eslint.config.js`; enforces tabs, single quotes, semicolons, unix linebreaks, and `_`-prefixed unused-var ignore).
-- `pnpm test:unit` — Vitest. Tests live under `tests/units/**/*.test.ts` (see `vitest.config.ts`). Run a single test with `pnpm test:unit tests/units/scenario.test.ts` or filter by name via `-t '<pattern>'`.
+- `pnpm test:unit` — Vitest. Tests live under `tests/units/**/*.test.ts` (see `vitest.config.ts`). Run a single test with `pnpm test:unit tests/units/<name>.test.ts` or filter by name via `-t '<pattern>'`. **Narrative-engine tests live under `tests/units/narrative/` and must be run with an explicit target** (`pnpm test:unit --run tests/units/narrative`) — the legacy `tests/units/scenario.test.ts` imports `$lib/i18n` which Vitest can't resolve, so a `pnpm test:unit` with no target fails. Fix the alias resolution before changing this.
 - `pnpm run ia` — starts the Go AI server (`ia_server/cmd/lauchServer`, port 8000). Requires Go installed. Some word2vec/dictionary resource files are gitignored — see `ia_server/resources/`.
 - PocketBase locally: `docker compose up pocketbase` (port 8090, admin UI at `/_/`). Import the schema from `db/schema.json` via Settings → Import collections on first run.
 
@@ -39,7 +39,7 @@ There are intentionally two PocketBase entry points — don't merge them:
 - `src/lib/client/pocketbase.ts` — singleton `pb` for browser code, uses `PUBLIC_DB_URL`, `autoCancellation(false)`.
 - `src/lib/pocketbase.ts` — `createPocketBase()` factory for server code, uses the private `DB_URL`. Server-side form actions also instantiate `new PocketBase(DB_URL)` directly in some places (e.g. `src/routes/sessions/[slug=number]/+page.server.ts`).
 
-The `MyPocketBase` interface in `src/types/pocketBase/index.ts` adds typed `collection()` overloads for `Node`, `Scenario`, `End`, `Event`, `Session`, `Side`, `Users`. Prefer those typed collection names verbatim.
+The `MyPocketBase` interface in `src/types/pocketBase/index.ts` adds typed `collection()` overloads for `Node`, `Scenario`, `End`, `Event`, `Session`, `Side`, `Users`, `Characters`, `Evidences`, `StateAxes`. Prefer those typed collection names verbatim.
 
 ### Auth and roles
 
@@ -72,10 +72,30 @@ shadcn-svelte is configured (`components.json`) with aliases pointing into `$lib
 Cross-cutting domain helpers live under `src/lib/`:
 
 - `nodes/`, `scenario/`, `sessions.ts` — CRUD/orchestration helpers used by both client and server.
+- `narrative/` — pure runtime for the **scripted scenario engine** (cf. dedicated section below). Hermetic: never import `$lib/i18n` or any Svelte-dependent code here. Public API via `$lib/narrative` (`parseYaml`, `compile`, `step`, `evaluate`, `applyEffect`, plus runtime types).
 - `server/ia/` — the only IA client code; kept server-side so the private `IA_SERVER_URL` never reaches the bundle.
-- `zschemas/` — Zod schemas used for form-action validation (`addNode.schema`, `createSession.schema`, `event.schema`, `pseudo.schema`, `scenario.schema`, plus an `ia/` subfolder). When adding a form action, write the schema here and `safeParse` before touching the DB.
+- `zschemas/` — Zod schemas used for form-action validation (`addNode.schema`, `createSession.schema`, `event.schema`, `pseudo.schema`, `scenario.schema`, `scripted-scenario.schema` for YAML fixtures, plus an `ia/` subfolder). When adding a form action, write the schema here and `safeParse` before touching the DB. `scripted-scenario.schema` is hermetic — no `svelte-i18n` import.
 - `mainGraph/values.ts`, `nodes/index.ts` — graph layout constants and node helpers consumed by `MainGraph.svelte` and the D3 rendering code.
 - `runes/`, `actions/`, `animations/` — Svelte 5 rune-based stores, Svelte actions, and transition helpers respectively.
+
+### Scripted narrative engine
+
+Two scenario runtimes coexist, discriminated by `Scenario.engine: 'free' | 'scripted'`:
+
+- **`free`** — the original collaborative mode: players freely contribute nodes onto a tree, the Go IA server moderates, an admin picks the end. All pre-existing code paths (graph rendering, `addNode`/`addEvent`/`endSession` form actions, IA server's `/api/checkMsg` + `/api/newSession`) belong to this mode.
+- **`scripted`** — pre-authored solo narrations (intent-classified branching, evidence flags, score axes, action budget, auto-selected ends). Lives entirely under `src/lib/narrative/` and is **pure** (no DB, no IO, no Svelte). The canonical spec is **`docs/narrative-engine-design.md`** — section references inside narrative source comments (`§3`, `§4`, `§7.2`, etc.) all resolve there.
+
+**Schema additions for scripted mode** (cf. design doc §3, fully additive — free-mode sessions are unaffected):
+
+- New collections: `Characters` (PNJ per scenario), `Evidences` (unlockable flags), `StateAxes` (named score axes).
+- `Scenario` gained `engine`, `rules`, `characters`, `evidences`, `state_axes`.
+- `Node` gained `external_id`, `is_start`, `consumes_action`, `prompt_ia`, `intents`, `condition`, `effects` (all nullable).
+- `Session` gained `current_node`, `visited_nodes`, `evidences`, `scores`, `warnings`, `actions_left`, `last_intent`, `last_classification`.
+- `End` gained `condition`, `priority`.
+
+**Scenario fixtures** live in `scenarios/fixtures/*.yaml`. They are the authoring source-of-truth (validated by `scripted-scenario.schema.ts`, compiled at load time by `src/lib/narrative/compile.ts`). Format is specified in `docs/narrative-engine-design.md` §10. Two fixtures ship with the repo: `helix-corp.yaml` and `3036.yaml`.
+
+When extending the scripted engine, conform to the design doc rather than improvising — if the design feels wrong, propose an edit to the design doc *first*, then implement.
 
 ### i18n
 
