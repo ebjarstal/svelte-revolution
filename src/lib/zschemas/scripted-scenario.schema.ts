@@ -18,16 +18,20 @@ const endIdSchema = nonEmptyString;
 
 const scoreLevelSchema = z.enum(['faible', 'moyen', 'eleve']);
 
-const comparatorSchema = z
-	.object({
-		gte: z.number().optional(),
-		lte: z.number().optional(),
-		eq: z.number().optional()
-	})
-	.refine(
-		(c) => c.gte !== undefined || c.lte !== undefined || c.eq !== undefined,
-		{ message: 'un comparateur doit avoir au moins gte / lte / eq' }
-	);
+// Comparateur numérique (gte / lte / eq). Sans aucun des trois, le prédicat retournerait
+// FAIL silencieusement à l'évaluation runtime — piège pour l'auteur, donc rejet à la
+// validation Zod. Factory pour nommer le prédicat appelant dans le message d'erreur.
+const makeComparatorSchema = (predicateName: string) =>
+	z
+		.object({
+			gte: z.number().optional(),
+			lte: z.number().optional(),
+			eq: z.number().optional()
+		})
+		.refine(
+			(c) => c.gte !== undefined || c.lte !== undefined || c.eq !== undefined,
+			{ message: `${predicateName} doit avoir au moins gte / lte / eq` }
+		);
 
 // ─── DSL conditions (§4) ─────────────────────────────────────────────────────
 // L'objet condition est un sac de prédicats reliés implicitement par `all` au
@@ -85,6 +89,10 @@ export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
 					gte: z.number().optional(),
 					lte: z.number().optional()
 				})
+				.refine(
+					(c) => c.gte !== undefined || c.lte !== undefined,
+					{ message: 'has_count_among doit avoir au moins gte / lte' }
+				)
 				.optional(),
 			score: z
 				.object({
@@ -93,13 +101,17 @@ export const conditionSchema: z.ZodType<Condition> = z.lazy(() =>
 					lte: z.number().optional(),
 					eq: z.number().optional()
 				})
+				.refine(
+					(c) => c.gte !== undefined || c.lte !== undefined || c.eq !== undefined,
+					{ message: 'score doit avoir au moins gte / lte / eq' }
+				)
 				.optional(),
 			score_level: z
 				.object({ axis: axisIdSchema, level: scoreLevelSchema })
 				.optional(),
-			actions_left: comparatorSchema.optional(),
+			actions_left: makeComparatorSchema('actions_left').optional(),
 			classification_is: classLabelSchema.optional(),
-			warnings: comparatorSchema.optional()
+			warnings: makeComparatorSchema('warnings').optional()
 		})
 		.strict()
 );

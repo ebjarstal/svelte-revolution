@@ -67,4 +67,66 @@ describe('Phase 2 — Zod scripted-scenario.schema', () => {
 		const result = scriptedScenarioSchema.safeParse(bogus);
 		expect(result.success).toBe(false);
 	});
+
+	function wrapCondition(cond: unknown) {
+		return {
+			scenario: {
+				external_id: 'x',
+				title: 't',
+				prologue: 'p',
+				lang: 'fr-FR',
+				engine: 'scripted'
+			},
+			rules: {},
+			characters: [],
+			evidences: [],
+			state_axes: [],
+			nodes: [{ external_id: 'N1', condition: cond }],
+			ends: []
+		};
+	}
+
+	test('rejet has_count_among sans gte ni lte (juste ids)', () => {
+		const result = scriptedScenarioSchema.safeParse(
+			wrapCondition({ has_count_among: { ids: ['P1', 'P2'] } })
+		);
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const msg = JSON.stringify(result.error.issues);
+			expect(msg).toContain('has_count_among');
+		}
+	});
+
+	test('rejet score sans gte/lte/eq (juste axis)', () => {
+		const result = scriptedScenarioSchema.safeParse(
+			wrapCondition({ score: { axis: 'conformite' } })
+		);
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const msg = JSON.stringify(result.error.issues);
+			expect(msg).toContain('score');
+		}
+	});
+
+	test('rejet actions_left objet vide', () => {
+		const result = scriptedScenarioSchema.safeParse(
+			wrapCondition({ actions_left: {} })
+		);
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const msg = JSON.stringify(result.error.issues);
+			expect(msg).toContain('actions_left');
+		}
+	});
+
+	test('rejet warnings objet vide', () => {
+		const result = scriptedScenarioSchema.safeParse(
+			wrapCondition({ warnings: {} })
+		);
+		expect(result.success).toBe(false);
+		if (!result.success) {
+			const msg = JSON.stringify(result.error.issues);
+			expect(msg).toContain('warnings');
+		}
+	});
 });
