@@ -14,9 +14,10 @@ interface Line {
 	indent: number;    // nombre d'espaces en tête
 	content: string;   // contenu utile (sans indent ni commentaire fin de ligne)
 	blank: boolean;    // ligne vide ou commentaire pur
+	lineNo: number;    // index 0-based dans le fichier source (utilisé pour les erreurs)
 }
 
-class YamlParseError extends Error {
+export class YamlParseError extends Error {
 	constructor(message: string, public line: number) {
 		super(`YAML parse error (line ${line + 1}): ${message}`);
 	}
@@ -29,7 +30,7 @@ class Parser {
 
 	constructor(text: string) {
 		const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-		this.lines = normalized.split('\n').map(preprocessLine);
+		this.lines = normalized.split('\n').map((raw, i) => preprocessLine(raw, i));
 	}
 
 	parseRoot(): YamlValue {
@@ -120,7 +121,7 @@ class Parser {
 		keyIndent: number,
 		line: Line
 	): void {
-		const [key, restRaw] = splitKeyValue(content, line);
+		const [key, restRaw] = splitKeyValue(content, line.lineNo);
 		const rest = restRaw.trim();
 		if (rest === '') {
 			map[key] = this.parseValueAt(keyIndent);
@@ -163,17 +164,17 @@ class Parser {
 		if (trimmed.startsWith('*')) {
 			const name = trimmed.slice(1).trim();
 			if (!(name in this.anchors)) {
-				throw new YamlParseError(`unknown anchor: ${name}`, this.lines.indexOf(line));
+				throw new YamlParseError(`unknown anchor: ${name}`, line.lineNo);
 			}
 			return this.anchors[name];
 		}
 		const anchorMatch = trimmed.match(/^&([\w-]+)\s+(.*)$/s);
 		if (anchorMatch) {
-			const value = parseInlineValue(anchorMatch[2]);
+			const value = parseInlineValue(anchorMatch[2], line.lineNo);
 			this.anchors[anchorMatch[1]] = value;
 			return value;
 		}
-		return parseInlineValue(trimmed);
+		return parseInlineValue(trimmed, line.lineNo);
 	}
 }
 
@@ -185,16 +186,16 @@ function matchBlockLiteralHeader(rest: string): { anchor: string | null } | null
 	return null;
 }
 
-function preprocessLine(raw: string): Line {
+function preprocessLine(raw: string, lineNo: number): Line {
 	const trimmedRight = raw.replace(/\s+$/, '');
 	let indent = 0;
 	while (indent < trimmedRight.length && trimmedRight[indent] === ' ') indent++;
 	const after = trimmedRight.slice(indent);
 	if (after === '' || after.startsWith('#')) {
-		return { raw: trimmedRight, indent: 0, content: '', blank: true };
+		return { raw: trimmedRight, indent: 0, content: '', blank: true, lineNo };
 	}
 	const content = stripTrailingComment(after).replace(/\s+$/, '');
-	return { raw: trimmedRight, indent, content, blank: false };
+	return { raw: trimmedRight, indent, content, blank: false, lineNo };
 }
 
 function stripTrailingComment(s: string): string {
@@ -223,7 +224,7 @@ function isMappingEntry(content: string): boolean {
 	}
 }
 
-function splitKeyValue(content: string, line?: Line): [string, string] {
+function splitKeyValue(content: string, lineNo?: number): [string, string] {
 	let depth = 0;
 	let inStr: '"' | "'" | null = null;
 	for (let i = 0; i < content.length; i++) {
@@ -245,7 +246,7 @@ function splitKeyValue(content: string, line?: Line): [string, string] {
 			}
 		}
 	}
-	throw new YamlParseError(`no mapping separator in: ${content}`, line ? -1 : -1);
+	throw new YamlParseError(`no mapping separator in: ${content}`, lineNo ?? -1);
 }
 
 function unquoteKey(k: string): string {
@@ -254,7 +255,7 @@ function unquoteKey(k: string): string {
 	return k;
 }
 
-function parseInlineValue(raw: string): YamlValue {
+function parseInlineValue(raw: string, lineNo?: number): YamlValue {
 	const s = raw.trim();
 	if (s === '') return null;
 	if (s === '~' || s === 'null' || s === 'Null' || s === 'NULL') return null;
@@ -262,8 +263,8 @@ function parseInlineValue(raw: string): YamlValue {
 	if (s === 'false' || s === 'False' || s === 'FALSE') return false;
 	if (s.startsWith('"') && s.endsWith('"')) return parseDoubleQuoted(s);
 	if (s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1).replace(/''/g, "'");
-	if (s.startsWith('[') && s.endsWith(']')) return parseFlowSeq(s);
-	if (s.startsWith('{') && s.endsWith('}')) return parseFlowMap(s);
+	if (s.startsWith('[') && s.endsWith(']')) return parseFlowSeq(s, lineNo);
+	if (s.startsWith('{') && s.endsWith('}')) return parseFlowMap(s, lineNo);
 	if (/^-?\d+$/.test(s)) return parseInt(s, 10);
 	if (/^-?\d+\.\d+$/.test(s)) return parseFloat(s);
 	return s;
@@ -281,19 +282,19 @@ function parseDoubleQuoted(s: string): string {
 	});
 }
 
-function parseFlowSeq(s: string): YamlValue[] {
+function parseFlowSeq(s: string, lineNo?: number): YamlValue[] {
 	const inner = s.slice(1, -1).trim();
 	if (inner === '') return [];
-	return splitFlowItems(inner).map(parseInlineValue);
+	return splitFlowItems(inner).map((item) => parseInlineValue(item, lineNo));
 }
 
-function parseFlowMap(s: string): { [k: string]: YamlValue } {
+function parseFlowMap(s: string, lineNo?: number): { [k: string]: YamlValue } {
 	const inner = s.slice(1, -1).trim();
 	const obj: { [k: string]: YamlValue } = {};
 	if (inner === '') return obj;
 	for (const item of splitFlowItems(inner)) {
-		const [key, val] = splitKeyValue(item);
-		obj[key] = parseInlineValue(val);
+		const [key, val] = splitKeyValue(item, lineNo);
+		obj[key] = parseInlineValue(val, lineNo);
 	}
 	return obj;
 }
