@@ -88,4 +88,51 @@ describe('validateReferences', () => {
 		expect(refIssue).toBeDefined();
 		expect(refIssue?.path).toContain('.all[0].any[0].has');
 	});
+
+	// ── Couverture systématique : un cas par type de référence (Fix 5) ──────────
+	// Le moteur pur ne fait pas cette validation : c'est validateReferences (vivant
+	// dans src/lib/scenario/, hors hermeticité du moteur) qui sert de filet aux
+	// fixtures malformées. Régression cross-module : on s'assure ici que les 4
+	// types de référence sont systématiquement couverts.
+	describe('couverture par type de référence', () => {
+		test('node fantôme dans condition.from', () => {
+			const compiled = loadCompiled('helix-corp.yaml');
+			const node = compiled.nodes[2]!;
+			node.condition = { from: 'N_INEXISTANT' };
+			const issues = validateReferences(compiled);
+			const found = issues.find((i) => i.ref === 'N_INEXISTANT');
+			expect(found).toBeDefined();
+			expect(found?.kind).toBe('node');
+		});
+
+		test('evidence fantôme dans effects.unlock', () => {
+			const compiled = loadCompiled('helix-corp.yaml');
+			const node = compiled.nodes[2]!;
+			node.effects = [{ unlock: 'P_FANTOME' }];
+			const issues = validateReferences(compiled);
+			const found = issues.find((i) => i.ref === 'P_FANTOME');
+			expect(found).toBeDefined();
+			expect(found?.kind).toBe('evidence');
+		});
+
+		test('character fantôme dans condition.target', () => {
+			const compiled = loadCompiled('helix-corp.yaml');
+			const node = compiled.nodes[2]!;
+			node.condition = { target: 'pnj_inexistant' };
+			const issues = validateReferences(compiled);
+			const found = issues.find((i) => i.ref === 'pnj_inexistant');
+			expect(found).toBeDefined();
+			expect(found?.kind).toBe('character');
+		});
+
+		test('end fantôme dans effects.end', () => {
+			const compiled = loadCompiled('helix-corp.yaml');
+			const node = compiled.nodes[2]!;
+			node.effects = [{ end: 'FIN_FANTOME' }];
+			const issues = validateReferences(compiled);
+			const found = issues.find((i) => i.ref === 'FIN_FANTOME');
+			expect(found).toBeDefined();
+			expect(found?.kind).toBe('end');
+		});
+	});
 });
