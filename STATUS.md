@@ -1,22 +1,22 @@
 # STATUS — 2026-05-25
 
 ## Phase courante
-Phase 1 terminée. Phase 2 démarrage.
+Phase 2 terminée. Phase 3 démarrage.
 
 ## Dernière étape complétée
-- Lecture intégrale `docs/narrative-engine-design.md` + 2 PDFs (Helix Corp 25p, 3036 23p).
-- Encodage des 2 fixtures YAML conformes §10.2 :
-  - `scenarios/fixtures/helix-corp.yaml` (47 noeuds + 1 fallback, 4 PNJ, 10 preuves, 3 fins)
-  - `scenarios/fixtures/3036.yaml` (24 noeuds + 1 interrupt + 1 fallback, 3 axes de score, 5 fins)
-- Parseur YAML minimal hermétique : `src/lib/narrative/yaml.ts` (aucune dépendance externe ajoutée — `package.json` non touché).
-- Test trivial Phase 1 : `tests/units/narrative/fixtures.test.ts` (15/15 PASS).
+- **Phase 1** : 2 fixtures YAML encodées, parseur YAML hermétique, 15 tests PASS.
+- **Phase 2** : schema BD patché, Zod schema créé, types TS étendus.
+  - `db/schema.json` : +3 collections (Characters, Evidences, StateAxes), Scenario +5 champs, Node +8 champs, Session +8 champs, End +2 champs. `Node.session` rendu optionnel (scripted nodes appartiennent au scénario, pas à une session). `TriggerNodes` gardée (à supprimer plus tard).
+  - `src/lib/zschemas/scripted-scenario.schema.ts` : Zod hermétique (pas d'import `$lib/i18n` ni `scenario.schema`), valide les 2 fixtures.
+  - `src/types/pocketBase/TableTypes.d.ts` : interfaces Character, Evidence, StateAxis ; Scenario/Node/Session/End étendus avec champs optionnels.
+  - `src/types/pocketBase/index.ts` : `MyPocketBase` étendu avec les 3 nouvelles collections.
 
 ## Prochaine étape
-Phase 2 : patcher `db/schema.json` (champs additifs sur Scenario/Node/Session/End + 3 nouvelles collections Characters/Evidences/StateAxes), créer `src/lib/zschemas/scripted-scenario.schema.ts`, mettre à jour `src/types/pocketBase/TableTypes.d.ts`.
+Phase 3 : moteur narratif pur dans `src/lib/narrative/` (DSL evaluator, condition predicates, effects, end selector, runtime step). Tests Vitest qui rejouent les parcours canoniques des 2 fixtures.
 
 ## Tests
 - `pnpm check` : ✅ 0 errors (3 warnings pré-existants ignorés).
-- `pnpm test:unit --run tests/units/narrative` : ✅ 15/15 PASS.
+- `pnpm test:unit --run tests/units/narrative` : ✅ 19/19 PASS (15 Phase 1 + 4 Phase 2).
 - `pnpm test:unit --run` (sans cible) : ❌ pré-existant `scenario.test.ts` (hors scope, non touché).
 
 ## Audit nœuds Helix Corp (PDF vs encodé)

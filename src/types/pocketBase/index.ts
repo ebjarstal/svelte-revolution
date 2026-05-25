@@ -1,5 +1,5 @@
 import PocketBase, { RecordService } from 'pocketbase';
-import type { End, GraphEvent, GraphNode, Scenario, Session, Side, User } from '$types/pocketBase/TableTypes';
+import type { Character, End, Evidence, GraphEvent, GraphNode, Scenario, Session, Side, StateAxis, User } from '$types/pocketBase/TableTypes';
 
 export interface MyPocketBase extends PocketBase {
 	collection(idOrName: string): RecordService; // default fallback for any other collection
@@ -10,4 +10,7 @@ export interface MyPocketBase extends PocketBase {
 	collection(idOrName: 'Session'): RecordService<Session>;
 	collection(idOrName: 'Side'): RecordService<Side>;
 	collection(idOrName: 'Users'): RecordService<User>;
+	collection(idOrName: 'Characters'): RecordService<Character>;
+	collection(idOrName: 'Evidences'): RecordService<Evidence>;
+	collection(idOrName: 'StateAxes'): RecordService<StateAxis>;
 }
