@@ -156,6 +156,7 @@ function buildEndPayload(end: EndFixture, id: string, scenarioId: string) {
 	return {
 		id,
 		scenario: scenarioId,
+		external_id: end.external_id,
 		title: end.title,
 		text: end.text,
 		priority: end.priority,

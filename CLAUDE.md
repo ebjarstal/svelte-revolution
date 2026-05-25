@@ -17,7 +17,7 @@ Package manager is **pnpm** (see `packageManager` in `package.json`). Don't subs
 - `pnpm check` / `pnpm check:watch` — `svelte-kit sync` + `svelte-check` typecheck.
 - `pnpm lint` / `pnpm lint:fix` — ESLint (config in `eslint.config.js`; enforces tabs, single quotes, semicolons, unix linebreaks, and `_`-prefixed unused-var ignore).
 - `pnpm test:unit` — Vitest watch mode. Tests live under `tests/units/**/*.test.ts` (see `vitest.config.ts`). Run a single test with `pnpm test:unit tests/units/<name>.test.ts` or filter by name via `-t '<pattern>'`. **Note:** the legacy `tests/units/scenario.test.ts` imports `$lib/i18n` which Vitest can't resolve, so `pnpm test:unit` against the whole suite fails until that alias is fixed.
-- `pnpm test:narrative` — runs only `tests/units/narrative/` in single-shot mode. Use this for the scripted-engine work (it includes `persist-scripted.integration.test.ts`, which stubs the PocketBase batch SDK so no live DB is required). A project-level `.claude/settings.json` PostToolUse hook also auto-runs this script whenever you edit `src/lib/narrative/**`, `tests/units/narrative/**`, `scenarios/fixtures/**`, `src/lib/zschemas/scripted-scenario.schema.ts`, or the three `src/lib/scenario/{pb-id,validate-references,persist-scripted}.ts` modules — read its tail in your transcript to catch regressions early.
+- `pnpm test:narrative` — runs only `tests/units/narrative/` in single-shot mode. Use this for the scripted-engine work (it includes `persist-scripted.integration.test.ts`, which stubs the PocketBase batch SDK so no live DB is required). A project-level `.claude/settings.json` PostToolUse hook also auto-runs this script whenever you edit `src/lib/narrative/**`, `tests/units/narrative/**`, `scenarios/fixtures/**`, `src/lib/zschemas/scripted-{scenario,turn}.schema.ts`, or any of the six scripted helpers under `src/lib/scenario/` (`pb-id`, `validate-references`, `persist-scripted`, `create-scripted-session`, `engine-dispatch`, `runtime-scripted`) — read its tail in your transcript to catch regressions early.
 - `pnpm run ia` — starts the Go AI server (`ia_server/cmd/lauchServer`, port 8000). Requires Go installed. Some word2vec/dictionary resource files are gitignored — see `ia_server/resources/`.
 - PocketBase locally: `docker compose up pocketbase` (port 8090, admin UI at `/_/`). Import the schema from `db/schema.json` via Settings → Import collections on first run.
 
@@ -52,7 +52,7 @@ The `MyPocketBase` interface in `src/types/pocketBase/index.ts` adds typed `coll
 
 - `(home)` — public landing.
 - `(auth)/login` — login.
-- `sessions/[slug=number]/` — the core session view. `slug` is constrained by `src/params/number.ts`. `+page.server.ts` exposes form actions `addNode`, `addEvent`, `endSession`. `MainGraph.svelte` + `GraphUI/*` render the D3-based contribution tree.
+- `sessions/[slug=number]/` — the core session view. `slug` is constrained by `src/params/number.ts`. `+page.server.ts` exposes form actions `addNode`, `addEvent`, `endSession`; the `addNode` action front-routes on `isScriptedScenario()` (cf. `$lib/scenario/engine-dispatch`) and delegates to `progressScripted()` for scripted sessions (validated by `addScriptedTurnSchema`), only falling through to the free-mode path otherwise. `MainGraph.svelte` + `GraphUI/*` render the D3 contribution tree for free sessions; `ScriptedPlayer.svelte` is the alternative view rendered when `scenario.engine === 'scripted'`.
 - `admin/` — admin layout gates on role; subtrees `scenario/create`, `scenario/import` (scripted YAML upload), `sessions/create`, `user/create`.
 - `api/ai/health` and `api/ai/newAiSession` — thin proxies to the Go AI server.
 - `design-system/` — internal component gallery.
@@ -73,10 +73,12 @@ shadcn-svelte is configured (`components.json`) with aliases pointing into `$lib
 Cross-cutting domain helpers live under `src/lib/`:
 
 - `nodes/`, `sessions.ts` — CRUD/orchestration helpers used by both client and server.
-- `scenario/` — mixed: `index.ts` holds the legacy free-engine CRUD (`createScenario`, `createEventsAndEnds`) usable both client- and server-side. The three Phase-4 modules `pb-id.ts`, `validate-references.ts`, `persist-scripted.ts` are **server-only** (they use `pb.createBatch()` with a `MyPocketBase` instance built from the private `DB_URL`) — see the « Scripted narrative engine » section below for the import pipeline.
-- `narrative/` — pure runtime for the **scripted scenario engine** (cf. dedicated section below). Hermetic: never import `$lib/i18n` or any Svelte-dependent code here. Public API via `$lib/narrative` (`parseYaml`, `compile`, `step`, `evaluate`, `applyEffect`, plus runtime types).
+- `scenario/` — mixed: `index.ts` holds the legacy free-engine CRUD (`createScenario`, `createEventsAndEnds`) usable both client- and server-side. The six scripted helpers are **server-only** (most use `MyPocketBase` instances built from the private `DB_URL`, or take `pb` as an argument so they remain testable under Vitest) :
+  - **Phase 4 — import pipeline** : `pb-id.ts`, `validate-references.ts`, `persist-scripted.ts` (uses `pb.createBatch()`). See « Scripted narrative engine » below.
+  - **Phase 5 — runtime + dispatch** : `create-scripted-session.ts` (seeds a scripted Session with initial state via `initialState()` of `$lib/narrative`), `engine-dispatch.ts` (`isScriptedScenario()` guard used by the `addNode` action), `runtime-scripted.ts` (`progressScripted(pb, sessionId, text, classifier)` + `loadScenarioBundle()` + `readStateFromSession()` — bridges PB id ↔ external_id for `Session.current_node` (relation) and `Session.end`).
+- `narrative/` — pure runtime for the **scripted scenario engine** (cf. dedicated section below). Hermetic: never import `$lib/i18n` or any Svelte-dependent code here. Public API via `$lib/narrative` (`parseYaml`, `compile`, `step`, `evaluate`, `applyEffect`, `classifyStub`, `initialState`, plus runtime types like `IntentDecl` and `ClassifyResult`).
 - `server/ia/` — the only IA client code; kept server-side so the private `IA_SERVER_URL` never reaches the bundle.
-- `zschemas/` — Zod schemas used for form-action validation (`addNode.schema`, `createSession.schema`, `event.schema`, `pseudo.schema`, `scenario.schema`, `scripted-scenario.schema` for YAML fixtures, plus an `ia/` subfolder). When adding a form action, write the schema here and `safeParse` before touching the DB. `scripted-scenario.schema` is hermetic — no `svelte-i18n` import.
+- `zschemas/` — Zod schemas used for form-action validation (`addNode.schema`, `createSession.schema`, `event.schema`, `pseudo.schema`, `scenario.schema`, `scripted-scenario.schema` for YAML fixtures, `scripted-turn.schema` for the scripted `addNode` action input, plus an `ia/` subfolder). When adding a form action, write the schema here and `safeParse` before touching the DB. `scripted-scenario.schema` and `scripted-turn.schema` are hermetic — no `svelte-i18n` import.
 - `mainGraph/values.ts`, `nodes/index.ts` — graph layout constants and node helpers consumed by `MainGraph.svelte` and the D3 rendering code.
 - `runes/`, `actions/`, `animations/` — Svelte 5 rune-based stores, Svelte actions, and transition helpers respectively.
 
@@ -93,7 +95,7 @@ Two scenario runtimes coexist, discriminated by `Scenario.engine: 'free' | 'scri
 - `Scenario` gained `engine`, `rules`, `characters`, `evidences`, `state_axes`.
 - `Node` gained `external_id`, `is_start`, `consumes_action`, `prompt_ia`, `intents`, `condition`, `effects` (all nullable).
 - `Session` gained `current_node`, `visited_nodes`, `evidences`, `scores`, `warnings`, `actions_left`, `last_intent`, `last_classification`.
-- `End` gained `condition`, `priority`.
+- `End` gained `condition`, `priority`, `external_id`.
 
 **Scenario fixtures** live in `scenarios/fixtures/*.yaml`. They are the authoring source-of-truth (validated by `scripted-scenario.schema.ts`, compiled at load time by `src/lib/narrative/compile.ts`). Format is specified in `docs/narrative-engine-design.md` §10. Two fixtures ship with the repo: `helix-corp.yaml` and `3036.yaml`.
 
@@ -103,6 +105,8 @@ Two scenario runtimes coexist, discriminated by `Scenario.engine: 'free' | 'scri
 - `persist-scripted.ts` pre-generates 15-char `[a-z0-9]` IDs (helper in `pb-id.ts`) for the Scenario + every Character/Evidence/StateAxis/Node/End, then writes the whole graph in a single PocketBase transactional batch (`pb.createBatch()`, SDK 0.26+). A `BatchPersistError` is thrown on partial failure — PB rollbacks the transaction server-side.
 
 Mapping notes (cohabitation with the free schema): `Scenario.firstNodeTitle/Text/Author` is populated from the scripted startNode + uploader id; `Scenario.lang` maps the YAML locale prefix to the PB enum (`fr-FR` → `fr`); `Node.type` is `'startNode'` for `is_start`, `'contribution'` otherwise; `Node.author` is the uploader's id.
+
+**Runtime + classifier injection point** (Phase 5) — when a player submits a turn on a scripted session, `+page.server.ts:addNode` routes to `progressScripted(pb, sessionId, text, classifier)` (cf. `$lib/scenario/runtime-scripted.ts`). The classifier is injected via the `Classifier` type, so the TS stub `classifyStub` from `$lib/narrative` (keyword matching against intent descriptions + 3036 classification taxonomy descriptors) can be swapped for the Go `/api/classify` word2vec backend (Phase 6) without touching `+page.server.ts`. Player UI is `src/routes/sessions/[slug=number]/ScriptedPlayer.svelte`, rendered in place of `MainGraph.svelte` when `scenario.engine === 'scripted'`.
 
 When extending the scripted engine, conform to the design doc rather than improvising — if the design feels wrong, propose an edit to the design doc *first*, then implement.
 

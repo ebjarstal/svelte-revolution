@@ -23,7 +23,8 @@
       "createTheSession": "Créer la session",
       "goto": "Aller à la session",
       "preview": "Prévisulation d'une session",
-      "aiScenarios": "Scénarios avec IA"
+      "aiScenarios": "Scénarios avec IA",
+      "scriptedScenarios": "Scénarios scénarisés"
     },
     "scenario": {
       "language": "Langue",
@@ -100,6 +101,18 @@
 	"replyingTo": "Répondre à",
 	"contribute": "Contribuer",
 	"addAudio": "Ajouter un fichier audio"
+  },
+  "scripted": {
+    "inputPlaceholder": "Que faites-vous ?",
+    "submit": "Envoyer",
+    "actionsRemaining": "Actions restantes",
+    "warnings": "Avertissements",
+    "scores": "Scores",
+    "evidencesUnlocked": "Preuves débloquées",
+    "endReached": "Fin atteinte",
+    "noCurrentNode": "Aucun noeud courant. La session n'est peut-être pas initialisée.",
+    "fallbackHint": "Reformule ta réponse — le moteur n'a pas compris.",
+    "errorGeneric": "Erreur lors de l'envoi du tour"
   },
   "scenario": {
     "scenario": "Scénario",

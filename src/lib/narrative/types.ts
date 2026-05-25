@@ -67,6 +67,23 @@ export interface PlayerInput {
 	target?: string;
 }
 
+/** Déclaration d'intent côté fixture YAML (Node.intents — cf. §3.2 / §10.2). */
+export interface IntentDecl {
+	label: string;
+	description: string;
+}
+
+/**
+ * Résultat d'un appel de classifier (stub TS ou Go word2vec en Phase 6).
+ * `classification` est posée uniquement si le label matché appartient à la taxonomie
+ * connue (CONFORME / NON_CONFORME / CRITIQUE / NON_COOPERATIF / ...).
+ */
+export interface ClassifyResult {
+	intent: string;
+	classification?: string;
+	confidence: number;
+}
+
 /** Résultat d'un tour de jeu. */
 export interface StepResult {
 	state: SessionState;

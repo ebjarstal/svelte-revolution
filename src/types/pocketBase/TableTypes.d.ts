@@ -61,6 +61,7 @@ export interface End {
 	title: string;
 	text: string;
 	// scripted engine
+	external_id?: string;
 	condition?: unknown;   // DSL §4, validé via scripted-scenario.schema
 	priority?: number;
 }

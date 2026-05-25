@@ -13,6 +13,7 @@
 	import GraphUi from './GraphUI/GraphUI.svelte';
 	import MainGraph from './MainGraph.svelte';
 	import ShowPrologue from './GraphUI/ShowPrologue.svelte';
+	import ScriptedPlayer from './ScriptedPlayer.svelte';
 	import DebugPane from '$components/admin/DebugPane.svelte';
 
 	import type { LayoutData } from './$types';
@@ -85,20 +86,38 @@
 	<DebugPane {graph} />
 {/if}
 
-{#await data.nodesPromise}
-	<div class=" w-full h-screen flex justify-center items-center bg-black">
-		<LoaderPinwheel
-			color="white"
-			class="w-20 z-50 opacity-100 h-20 loader animate-spin"
-		/>
-	</div>
-{:then nodes}
-	<div class="h-full w-full">
-		{#if currentSession.userCanAccess && currentSession.userWantAccess}
-			<GraphUi {graph} {user} />
-			<MainGraph bind:graph {nodes} />
-		{:else}
-			<ShowPrologue {graph} />
+{#if scenario.engine === 'scripted'}
+	{#await data.scriptedDataPromise}
+		<div class="w-full h-screen flex justify-center items-center bg-black">
+			<LoaderPinwheel color="white" class="w-20 z-50 opacity-100 h-20 loader animate-spin" />
+		</div>
+	{:then scriptedData}
+		{#if scriptedData}
+			<ScriptedPlayer
+				session={currentSession.session}
+				{scenario}
+				currentNode={scriptedData.currentNode}
+				evidences={scriptedData.evidences}
+				stateAxes={scriptedData.stateAxes}
+			/>
 		{/if}
-	</div>
-{/await}
+	{/await}
+{:else}
+	{#await data.nodesPromise}
+		<div class=" w-full h-screen flex justify-center items-center bg-black">
+			<LoaderPinwheel
+				color="white"
+				class="w-20 z-50 opacity-100 h-20 loader animate-spin"
+			/>
+		</div>
+	{:then nodes}
+		<div class="h-full w-full">
+			{#if currentSession.userCanAccess && currentSession.userWantAccess}
+				<GraphUi {graph} {user} />
+				<MainGraph bind:graph {nodes} />
+			{:else}
+				<ShowPrologue {graph} />
+			{/if}
+		</div>
+	{/await}
+{/if}

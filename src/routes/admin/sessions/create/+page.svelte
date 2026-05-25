@@ -5,6 +5,7 @@
 	import { getScenario } from '$lib/scenario';
 	import toast from 'svelte-french-toast';
 	import { createSession } from '$lib/sessions';
+	import { createScriptedSession } from '$lib/scenario/create-scripted-session';
 	import { pb } from '$lib/client/pocketbase';
 	import { createStartNode } from '$lib/nodes';
 	import type { ClientResponseError } from 'pocketbase';
@@ -42,14 +43,22 @@
 			}
 
 			const image = form.image?.item(0);
-			const session = await createSession({
+			const sessionData = {
 				name: form.name,
 				scenario: form.scenarioId,
 				author: pb.authStore.record.id,
 				image: image as unknown as string, // we upload a file but we receive a string (url)
 				useAudio: form.useAudio
-			});
-			await createStartNode(pb, scenario, session.id);
+			};
+
+			if (scenario.engine === 'scripted') {
+				// Le startNode existe déjà en BD (créé à l'import du fixture YAML)
+				// — on initialise simplement l'état de la session via createScriptedSession.
+				await createScriptedSession(pb, sessionData);
+			} else {
+				const session = await createSession(sessionData);
+				await createStartNode(pb, scenario, session.id);
+			}
 
 			toast.success($t('admin.session.creationSuccess'));
 		} catch (error) {
@@ -97,12 +106,21 @@
 			<Select
 				triggerClass="w-full"
 				label={$t('admin.session.selectScenario')}
-				values={data.scenarios.map((s) => ({ 
+				values={data.scenarios.map((s) => ({
 					value: s.id,
 					label: s.title,
-					group: s.ai ? $t('admin.session.aiScenarios') : $t('scenario.scenarios')
+					group:
+						s.engine === 'scripted'
+							? $t('admin.session.scriptedScenarios')
+							: s.ai
+								? $t('admin.session.aiScenarios')
+								: $t('scenario.scenarios')
 				}))}
-				groups={[$t('scenario.scenarios'), $t('admin.session.aiScenarios')]}
+				groups={[
+					$t('scenario.scenarios'),
+					$t('admin.session.aiScenarios'),
+					$t('admin.session.scriptedScenarios')
+				]}
 				bind:value={form.scenarioId}
 			/>
 			<Base 

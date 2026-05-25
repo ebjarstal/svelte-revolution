@@ -461,6 +461,20 @@
         "type": "text"
       },
       {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "txt_extid_end1",
+        "max": 100,
+        "min": 0,
+        "name": "external_id",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
         "cascadeDelete": true,
         "collectionId": "6y0zlht58tefq0m",
         "hidden": false,

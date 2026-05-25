@@ -22,7 +22,8 @@
       "createTheSession": "セッションを作成",
       "goto": "セッションへ移動",
       "preview": "セッションのプレビュー",
-      "aiScenarios": "AIシナリオ"
+      "aiScenarios": "AIシナリオ",
+      "scriptedScenarios": "スクリプト型シナリオ"
     },
     "scenario": {
       "language": "言語",
@@ -79,6 +80,18 @@
     "eventHidden": "別のチーム向けのイベント",
     "replyingTo": "返信先",
     "contribute": "投稿する"
+  },
+  "scripted": {
+    "inputPlaceholder": "何をしますか？",
+    "submit": "送信",
+    "actionsRemaining": "残り行動",
+    "warnings": "警告",
+    "scores": "スコア",
+    "evidencesUnlocked": "解放された手がかり",
+    "endReached": "結末に到達",
+    "noCurrentNode": "現在のノードがありません。セッションが初期化されていない可能性があります。",
+    "fallbackHint": "言い換えてみてください — エンジンが理解できませんでした。",
+    "errorGeneric": "ターンの送信中にエラーが発生しました"
   },
   "scenario": {
     "scenario": "シナリオ",

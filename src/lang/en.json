@@ -22,7 +22,8 @@
       "createTheSession": "Create the session",
       "goto": "Go to the session",
       "preview": "Session preview",
-      "aiScenarios": "AI scenarios"
+      "aiScenarios": "AI scenarios",
+      "scriptedScenarios": "Scripted scenarios"
     },
     "scenario": {
       "language": "Language",
@@ -79,6 +80,18 @@
     "eventHidden": "Event for another side",
     "replyingTo": "Replying to",
     "contribute": "Contribute"
+  },
+  "scripted": {
+    "inputPlaceholder": "What do you do?",
+    "submit": "Submit",
+    "actionsRemaining": "Actions remaining",
+    "warnings": "Warnings",
+    "scores": "Scores",
+    "evidencesUnlocked": "Evidence unlocked",
+    "endReached": "End reached",
+    "noCurrentNode": "No current node. The session may not be initialised.",
+    "fallbackHint": "Try rephrasing — the engine didn't understand.",
+    "errorGeneric": "Error while submitting turn"
   },
   "scenario": {
     "scenario": "Scenario",

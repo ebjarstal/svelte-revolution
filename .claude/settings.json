@@ -6,7 +6,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": "fp=$(jq -r '.tool_input.file_path // empty'); if [[ \"$fp\" =~ (src/lib/narrative|tests/units/narrative|scenarios/fixtures|src/lib/zschemas/scripted-scenario|src/lib/scenario/(pb-id|validate-references|persist-scripted)) ]]; then cd \"${CLAUDE_PROJECT_DIR:-/Users/eric/Code/svelte-revolution}\" && out=$(pnpm -s test:narrative --reporter=dot 2>&1); status=$?; if [[ $status -eq 0 ]]; then echo \"[narrative-tests] ✅ green ($(echo \\\"$out\\\" | grep -Eo '[0-9]+ passed' | head -1))\"; else echo \"[narrative-tests] ❌ FAILED after editing $fp\"; echo \"$out\" | tail -25; fi; fi"
+						"command": "fp=$(jq -r '.tool_input.file_path // empty'); if [[ \"$fp\" =~ (src/lib/narrative|tests/units/narrative|scenarios/fixtures|src/lib/zschemas/scripted-(scenario|turn)|src/lib/scenario/(pb-id|validate-references|persist-scripted|create-scripted-session|engine-dispatch|runtime-scripted)) ]]; then cd \"${CLAUDE_PROJECT_DIR:-/Users/eric/Code/svelte-revolution}\" && out=$(pnpm -s test:narrative --reporter=dot 2>&1); status=$?; if [[ $status -eq 0 ]]; then echo \"[narrative-tests] ✅ green ($(echo \\\"$out\\\" | grep -Eo '[0-9]+ passed' | head -1))\"; else echo \"[narrative-tests] ❌ FAILED after editing $fp\"; echo \"$out\" | tail -25; fi; fi"
 					}
 				]
 			}

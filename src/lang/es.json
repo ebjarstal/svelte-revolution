@@ -22,7 +22,8 @@
       "createTheSession": "Crear la sesión",
       "goto": "Ir a la sesión",
       "preview": "Vista previa de una sesión",
-      "aiScenarios": "Escenarios con IA"
+      "aiScenarios": "Escenarios con IA",
+      "scriptedScenarios": "Escenarios guionizados"
     },
     "scenario": {
       "language": "Idioma",
@@ -79,6 +80,18 @@
     "eventHidden": "Evento para otro bando",
     "replyingTo": "Responder a",
     "contribute": "Contribuir"
+  },
+  "scripted": {
+    "inputPlaceholder": "¿Qué haces?",
+    "submit": "Enviar",
+    "actionsRemaining": "Acciones restantes",
+    "warnings": "Advertencias",
+    "scores": "Puntuaciones",
+    "evidencesUnlocked": "Pruebas desbloqueadas",
+    "endReached": "Final alcanzado",
+    "noCurrentNode": "Sin nodo actual. La sesión puede no estar inicializada.",
+    "fallbackHint": "Reformula tu respuesta — el motor no comprendió.",
+    "errorGeneric": "Error al enviar el turno"
   },
   "scenario": {
     "scenario": "Escenario",

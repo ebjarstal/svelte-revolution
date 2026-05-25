@@ -2,10 +2,15 @@ import { createNode } from '$lib/nodes';
 import { censorNode } from '$lib/server/ia';
 import { createNewEvents, triggerEnd } from '$lib/server/ia/event';
 import { addNodeSchema } from '$lib/zschemas/addNode.schema';
+import { addScriptedTurnSchema } from '$lib/zschemas/scripted-turn.schema';
+import { classifyStub } from '$lib/narrative';
+import { isScriptedScenario } from '$lib/scenario/engine-dispatch';
+import { progressScripted } from '$lib/scenario/runtime-scripted';
 import PocketBase from 'pocketbase';
 import { DB_URL } from '$env/static/private';
 import { ClientResponseError } from 'pocketbase';
 import type { GraphNode } from '$types/pocketBase/TableTypes';
+import type { MyPocketBase } from '$types/pocketBase';
 import { type Actions, fail } from '@sveltejs/kit';
 
 export const actions: Actions = {
@@ -13,16 +18,81 @@ export const actions: Actions = {
 		try {
 			const data = await request.formData();
 
-			const pb = new PocketBase(DB_URL);
+			const pb = new PocketBase(DB_URL) as MyPocketBase;
 
 			// * no needs to authenticate, as the session is public
+
+			// PHASE 5.4 — détermine le moteur via la relation `scenario` expandée AVANT le
+			// reste pour pouvoir router. Le chemin free conserve sa logique (validation
+			// addNodeSchema, censorNode, createNode, events, end triggers) inchangée
+			// ci-dessous ; seul le lookup `getOne(...)` est hoisted pour servir le test
+			// `engine === 'scripted'` du dispatcher.
+			const sessionId = (data.get('session') ?? '') as string;
+			if (!sessionId) {
+				return fail(422, { success: false, error: 'errors.addNode.missingSession' });
+			}
+			const sessionData = await pb
+				.collection('Session')
+				.getOne(sessionId, { expand: 'scenario' });
+
+			if (isScriptedScenario(sessionData)) {
+				const scriptedInput = addScriptedTurnSchema.safeParse({
+					session: sessionId,
+					text: data.get('text')
+				});
+				if (!scriptedInput.success) {
+					return fail(422, {
+						success: false,
+						error: scriptedInput.error.issues.map((e) => e.message).join(', ')
+					});
+				}
+				try {
+					const result = await progressScripted(
+						pb,
+						sessionId,
+						scriptedInput.data.text,
+						classifyStub
+					);
+					return {
+						status: 200,
+						success: true,
+						body: {
+							message: 'Scripted turn applied',
+							state: result.state,
+							next_node: result.next_node
+								? {
+									external_id: result.next_node.external_id,
+									titre: result.next_node.titre ?? null,
+									texte: result.next_node.texte ?? null
+								}
+								: null,
+							end: result.end
+								? {
+									external_id: result.end.external_id,
+									title: result.end.title,
+									text: result.end.text
+								}
+								: null,
+							fell_back: result.fell_back
+						}
+					};
+				} catch (e) {
+					console.error('scripted progress error:', e);
+					return fail(500, {
+						success: false,
+						error: e instanceof Error ? e.message : 'Error progressing scripted turn'
+					});
+				}
+			}
+
+			// ─── FREE engine — logique d'origine, inchangée (cf. design doc §11.1) ───
 
 			let nodeData = {
 				title: data.get('title') as string,
 				text: data.get('text') as string,
 				author: data.get('author') as string,
 				parent: data.get('parent') as string,
-				session: data.get('session') as string,
+				session: sessionId,
 				side: data.get('side') as string,
 				audio: (data.get('audio') ?? null) as File | null
 			};
@@ -35,10 +105,8 @@ export const actions: Actions = {
 				});
 			}
 
-			// maybe cache the session data to avoid a round trip on every added node
-			const sessionData = await pb.collection('Session').getOne(nodeData.session, {expand: 'scenario'});
 			let censorResponse: Awaited<ReturnType<typeof censorNode>> | null = null;
-			if (sessionData.expand?.scenario.ai) {
+			if (sessionData.expand?.scenario?.ai) {
 				censorResponse = await censorNode(nodeData);
 				nodeData = { ...nodeData, ...censorResponse.node };
 			}

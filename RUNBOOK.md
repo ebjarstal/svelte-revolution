@@ -14,6 +14,7 @@ Gestes opérationnels pour faire tourner et déployer `babel-revolution`. Pour l
 
 - Toute modif de `db/schema.json` (sur main ou ta branche) → réimporter via PB admin. Ajouts additifs : données préservées. Drops : PB prévient avant.
 - Phase 4 a droppé `TriggerNodes`. Vérifier qu'elle est vide en prod **avant** de réimporter là-bas.
+- Phase 5 a ajouté `End.external_id`. Sur env avec scénarios scripted pré-Phase-5 : réimporter schéma, puis pour chaque scénario scripted, supprimer la row `Scenario` (cascade Nodes/Ends/Characters/Evidences/StateAxes) et réimporter le YAML via `/admin/scenario/import`. Sinon `Session.end` ne sera pas renseigné en fin de partie.
 
 ## Settings PocketBase requis (toutes envs)
 

@@ -8,14 +8,17 @@ export { compile } from './compile';
 export { step } from './engine';
 export { evaluate } from './conditions';
 export { applyEffect } from './effects';
+export { classifyStub } from './classify-stub';
 export { initialState } from './types';
 export type {
 	CharacterFixture,
+	ClassifyResult,
 	CompiledScenario,
 	Condition,
 	Effect,
 	EndFixture,
 	EvidenceFixture,
+	IntentDecl,
 	NodeFixture,
 	PlayerInput,
 	ScenarioRules,
