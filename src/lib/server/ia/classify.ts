@@ -14,11 +14,15 @@ export const classifyWord2vec: Classifier = (text, promptIa, intents) =>
 	createClassifyWord2vec(env.IA_SERVER_URL)(text, promptIa, intents);
 
 // Selector pour `+page.server.ts` : choisit le backend selon `IA_CLASSIFY_BACKEND`.
-//   - `word2vec` : appelle `/api/classify` du serveur Go.
+//   - `word2vec` : appelle `/api/classify` du serveur Go (backend cosine similarity).
+//   - `llm`      : appelle `/api/classify` du serveur Go (backend LLM Mistral —
+//                  le switch est interne au serveur Go, transparent pour ce client).
+//                  Côté SvelteKit, c'est exactement le même client HTTP que
+//                  `word2vec` car l'endpoint est identique ; seul le payload retour
+//                  diffère (le LLM peut poser `classification` pour 3036).
 //   - tout le reste (`stub`, vide, inconnu) : stub TS local (Phase 5.2).
-// Ajouter un backend LLM en Phase 7 = ajouter un cas ici sans toucher au site d'appel.
 export function pickClassifier(): Classifier {
 	const backend = (env.IA_CLASSIFY_BACKEND ?? '').toLowerCase();
-	if (backend === 'word2vec') return classifyWord2vec;
+	if (backend === 'word2vec' || backend === 'llm') return classifyWord2vec;
 	return classifyStub;
 }

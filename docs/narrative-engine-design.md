@@ -472,8 +472,12 @@ reste en place pour le moteur free. `/api/health` reste inchangé.
 Le code existant `IsActionPerformed` (`censorship.go:194-237`) peut être adapté en
 *intent matcher* : pour chaque label d'intention, on a une description, on calcule la
 cosine similarity entre `player_text` et chaque description (word2vec), on prend
-l'argmax + threshold. C'est la version basique. La version LLM-backed peut venir plus
-tard sans changer le contrat.
+l'argmax + threshold. C'est la version basique. La version LLM-backed (Phase 7,
+Mistral AI — cf. §12 Phase 7) peut venir plus tard sans changer le contrat. À la
+différence du backend word2vec, le LLM peut **aussi** poser le champ
+`classification` (CONFORME / NON_CONFORME / CRITIQUE / NON_COOPERATIF / RIEN /
+CREATIF / EVEIL — taxonomie 3036), ce que word2vec ne peut pas faire faute de
+sémantique au-delà de la similarité cosinus.
 
 ### 6.2 Cohabitation avec `/api/checkMsg`
 
@@ -1004,16 +1008,52 @@ sous-tâches sont vertes et `phase-reviewer` PASS) :
 - Une partie complète Helix jouée avec `IA_CLASSIFY_BACKEND=word2vec` produit les
   mêmes noeuds que le stub sur ≥80% des inputs (corpus de test à monter).
 
-### Phase 7 — LLM-backed `/api/classify` (optionnel)
+### Phase 7 — LLM-backed `/api/classify` (Mistral AI, optionnel)
 
-**Livrable** : `classify.go` ajoute un mode `--backend=llm` qui appelle un LLM
-externe (Claude API, configurable). Garde le mode word2vec en fallback.
+**Choix du fournisseur** : Mistral AI. Justification : le projet, l'UI et les
+prompts narratifs (fixtures YAML, descriptions d'intent) sont en français ;
+Mistral est entraîné nativement sur du français de bonne qualité et est hébergé
+en UE (souveraineté des données joueur). Pas de SDK Go officiel ; on appelle
+l'API REST `https://api.mistral.ai/v1/chat/completions` (format compatible
+OpenAI) en HTTP direct depuis `classify.go` — aucune dépendance externe à
+ajouter dans `go.mod`.
+
+**Modèle par défaut** : `mistral-small-latest` (latence + coût les plus bas du
+catalogue, suffisant pour une tâche de classification courte sur input français
+< 200 mots). Override possible via env var `MISTRAL_MODEL` (ex.
+`mistral-medium-latest` si la précision tombe sous le seuil §critère de sortie).
+
+**Garanties de format** : utiliser `response_format: { type: "json_object" }`
+dans la requête pour forcer un JSON parseable côté Go. Schéma de retour :
+`{intent, confidence, classification?, rationale}` — `classification` est
+optionnel et n'est posé que si le `prompt_ia` contient une taxonomie type 3036
+(ce que le backend word2vec ne peut PAS faire — cf. §6.1 Implémentation Go).
+
+**Variables d'environnement (Go)** :
+- `MISTRAL_API_KEY` (requis, privé) — clé API Mistral.
+- `MISTRAL_MODEL` (optionnel, défaut `mistral-small-latest`) — override modèle.
+
+**Livrable** :
+- `ia_server/pkg/classify/llm.go` : client HTTP Mistral pur (`ClassifyLLM(model,
+  apiKey, playerText, promptIa, intents) → IntentResult`). Sans état.
+- `ia_server/webservice/classify.go` étendu : sélection du backend selon une
+  variable d'env Go (`CLASSIFY_BACKEND=word2vec|llm`, défaut `word2vec`) — un
+  seul endpoint `/api/classify`, le switch est interne au handler.
+- `src/lib/server/ia/classify.ts` : extension de `pickClassifier()` pour accepter
+  la valeur `llm` côté SvelteKit (le client TS reste identique car l'endpoint Go
+  est le même — seul le backend interne change).
+
+**Fallback** : si l'API Mistral est down ou si `MISTRAL_API_KEY` n'est pas
+défini, le handler Go retombe sur le word2vec (warning log). Si word2vec est
+aussi indisponible (model.bin absent), 503 + le client TS retombe en no-match.
 
 **Critère de sortie** :
-- Latence < 2s P95 pour un classify.
+- Latence < 2s P95 pour un classify (P95 mesuré sur 50 requêtes hors cold-start).
 - Sur un corpus de 50 inputs joueur scriptés à la main, classification LLM > 90%
   vs word2vec ≈ 60% (à valider expérimentalement).
 - Feature flag étendu : `IA_CLASSIFY_BACKEND=stub|word2vec|llm`.
+- La dette 3036 héritée de Phase 6 (word2vec ne pose pas `classification`) est
+  résolue côté `llm`.
 
 ### Phase 8+ — Édition visuelle des conditions, statistiques par scénario, multi-joueur scripted
 

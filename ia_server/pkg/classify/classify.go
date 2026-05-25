@@ -27,12 +27,16 @@ type Alternative struct {
 	Confidence float32 `json:"confidence"`
 }
 
-// IntentResult : payload OUT (§6.1).
+// IntentResult : payload OUT (§6.1). `Classification` (taxonomie 3036 :
+// CONFORME / NON_CONFORME / CRITIQUE / NON_COOPERATIF / CREATIF / EVEIL / RIEN)
+// est posé par le backend LLM uniquement (Phase 7) — word2vec laisse vide et
+// `omitempty` garantit l'absence du champ dans la sérialisation.
 type IntentResult struct {
-	Intent       string        `json:"intent"`
-	Confidence   float32       `json:"confidence"`
-	Rationale    string        `json:"rationale"`
-	Alternatives []Alternative `json:"alternatives"`
+	Intent         string        `json:"intent"`
+	Confidence     float32       `json:"confidence"`
+	Classification string        `json:"classification,omitempty"`
+	Rationale      string        `json:"rationale"`
+	Alternatives   []Alternative `json:"alternatives"`
 }
 
 // ClassifyIntent calcule la similarité cosinus entre l'embedding moyenné du texte joueur

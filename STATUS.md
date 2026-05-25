@@ -1,8 +1,9 @@
-# STATUS — 2026-05-25 (post-Phase 6)
+# STATUS — 2026-05-25 (post-Phase 7)
 
 ## Phase courante
-Prêt à démarrer Phase 7 (LLM-backed `/api/classify` — optionnel, cf.
-`docs/narrative-engine-design.md` §12).
+Phase 7 livrée (LLM-backed `/api/classify` Mistral AI). Prochaine étape :
+Phase 8+ (édition visuelle conditions, stats par scénario, multi-joueur scripted)
+— hors-scope actuel, à re-planifier.
 
 ## Phases livrées
 - **Phase 1** — Fixtures YAML `helix-corp.yaml` (1575 lignes, 47 noeuds, 10 preuves,
@@ -25,6 +26,29 @@ Prêt à démarrer Phase 7 (LLM-backed `/api/classify` — optionnel, cf.
   - 5.4 Branche `engine === 'scripted'` dans l'action form `addNode` (helper
     `isScriptedScenario()`).
   - 5.5 `ScriptedPlayer.svelte` : noeud courant + textarea + sidebar + écran de fin.
+- **Phase 7** — LLM-backed `/api/classify` (Mistral AI) :
+  - `ia_server/pkg/classify/llm.go` : `ClassifyLLM(ctx, httpClient, apiURL, model,
+    apiKey, playerText, promptIa, intents)` pur HTTP, `response_format: json_object`,
+    rejet des intents hallucinés hors liste candidate (11 tests `httptest`).
+  - `ia_server/pkg/classify/classify.go` : `IntentResult.Classification` ajouté
+    (omitempty) — word2vec ne le pose pas, le LLM oui (taxonomie 3036).
+  - `ia_server/webservice/classify.go` : `classifyWithFallback()` route entre `llm`
+    et `word2vec` selon `CLASSIFY_BACKEND`. Fallback automatique LLM→word2vec→503
+    (9 tests handler avec httptest stub Mistral + w2v en mémoire).
+  - `ia_server/webservice/server.go` : `ServerAgent` étendu (`ClassifyBackend`,
+    `MistralAPIURL`, `MistralAPIKey`, `MistralModel`, `HTTPClient`) + `loadLLMConfig`
+    qui logge un warning si `CLASSIFY_BACKEND=llm` sans `MISTRAL_API_KEY`.
+  - `src/lib/server/ia/classify-core.ts` : propage `classification` depuis le
+    payload Go vers `ClassifyResult` (résout la dette 3036 ; word2vec n'en pose
+    jamais, donc no-op pour ce backend).
+  - `src/lib/server/ia/classify.ts` : `pickClassifier()` accepte `llm` comme alias
+    de word2vec (endpoint Go unique, switch interne côté Go).
+  - Feature flag étendu `IA_CLASSIFY_BACKEND=stub|word2vec|llm`. Côté Go nouvelles
+    env vars `CLASSIFY_BACKEND` + `MISTRAL_API_KEY` + `MISTRAL_MODEL` + optionnel
+    `MISTRAL_API_URL`.
+  - 2 nouveaux tests Vitest (propagation `classification`), 1 test Phase 6 inversé
+    (la dette 3036 est résolue).
+
 - **Phase 6** — Endpoint Go `/api/classify` word2vec + bascule via feature flag :
   - `ia_server/pkg/classify/classify.go` : `ClassifyIntent(model, dict, text, intents)`
     pure, cosine similarity argmax + tri des alternatives (6 tests Go unitaires
@@ -45,10 +69,12 @@ Prêt à démarrer Phase 7 (LLM-backed `/api/classify` — optionnel, cf.
 
 ## Tests
 - `pnpm check` : ✅ 0 errors (3 warnings pré-existants hors scope).
-- `pnpm test:narrative` : ✅ **153/153 PASS** (143 → 153 = +10 tests Phase 6).
-- `go test ./...` dans `ia_server/` : ✅ pkg/classify 6/6, word2vec 4/4.
+- `pnpm test:narrative` : ✅ **155/155 PASS** (153 → 155 = +2 tests Phase 7 sur la
+  propagation `classification` ; 1 test Phase 6 inversé).
+- `go test ./...` dans `ia_server/` : ✅ pkg/classify 17/17 (6 word2vec + 11 LLM
+  httptest), webservice 9/9 (handler + fallback paths), word2vec 4/4.
 - `pnpm test:unit` (suite complète sans cible) : ❌ pré-existant `scenario.test.ts`
-  qui importe `$lib/i18n` non résoluble par Vitest. Dette à régler hors Phase 6.
+  qui importe `$lib/i18n` non résoluble par Vitest. Dette à régler hors Phase 7.
 
 ## Critère §12 Phase 6 — validation acceptance manuelle restante
 > « Une partie complète Helix jouée avec `IA_CLASSIFY_BACKEND=word2vec` produit
@@ -64,6 +90,23 @@ Go et n'est pas versionné. À jouer en local avec :
 Tracé comme acceptance gate **hors workflow phase-gated** ; à valider sur la
 prochaine session de playtest combinée avec les autres ambigus en attente.
 
+## Critère §12 Phase 7 — validation acceptance manuelle restante
+> « Latence < 2s P95 pour un classify (sur 50 requêtes hors cold-start). »
+> « Sur un corpus de 50 inputs joueur scriptés à la main, classification LLM > 90%
+> vs word2vec ≈ 60% (à valider expérimentalement). »
+
+Non automatisable en CI : nécessite une `MISTRAL_API_KEY` valide + un corpus de 50
+inputs joueur monté à la main avec leur label attendu. Procédure :
+1. `CLASSIFY_BACKEND=llm MISTRAL_API_KEY=sk-... MISTRAL_MODEL=mistral-small-latest pnpm run ia`.
+2. `IA_CLASSIFY_BACKEND=llm pnpm dev`.
+3. Pour chaque input du corpus : POST `/api/classify` avec les intents attendus,
+   comparer le label retour à la vérité-terrain. Comparer aussi avec
+   `CLASSIFY_BACKEND=word2vec` côté Go (sans toucher au client TS).
+4. Mesurer la latence P95 hors cold-start (skip les 3 premières requêtes).
+
+Si <90% précision ou >2s latence, override via `MISTRAL_MODEL=mistral-medium-latest`
+(plus précis, plus lent). Tracé hors workflow phase-gated.
+
 ## Ambigus non résolus (à valider en playtest)
 - **3036 paliers `<33% / 33-66% / >66%`** sur `score_caps {conformite:7, creativite:12, eveil:10}` (Phase 1).
 - **3036 mécanisme `N_INTERRUPT`** custom (Phase 1).
@@ -76,16 +119,20 @@ prochaine session de playtest combinée avec les autres ambigus en attente.
   `/admin/scenario/import` pour les peupler.
 - **Pas de classification 3036 côté `word2vec`** : `classifyWord2vec` ne pose
   jamais `classification`, donc les noeuds 3036 qui filtrent par `classification_is:`
-  tombent en fallback no-match sous ce backend. Attendu par le design (Phase 7
-  LLM résout ça). Garder `stub` en défaut pour 3036 jusqu'à Phase 7.
+  tombent en fallback no-match sous ce backend. Résolu en Phase 7 côté `llm`
+  (Mistral pose `classification` quand le `prompt_ia` du nœud invoque la
+  taxonomie). Pour 3036 hors-ligne, garder `stub`.
 
 ## Prochaine étape
-`/phase start 7` — LLM-backed `/api/classify` (optionnel selon plan §12). Livrables :
-`classify.go` ajoute un mode `--backend=llm` (Claude API configurable, fallback
-word2vec), feature flag étendu en `stub|word2vec|llm`.
+Phase 7 livrée. Plus de phase planifiée dans `docs/narrative-engine-design.md` §12 :
+Phase 8+ (édition visuelle des conditions, statistiques par scénario, multi-joueur
+scripted) est marquée hors-scope « à re-planifier après Phase 7 ». À la décision
+utilisateur de définir la suite (compléter les acceptance gates Phase 6/7 manuels,
+lancer Phase 8, ou s'arrêter ici).
 
 ## Journal des commits récents
-- (Phase 6 non commit — en attente d'OK utilisateur)
+- (Phase 7 non commit — en attente d'OK utilisateur)
+- `3982de6` feat(phase-6): endpoint Go /api/classify word2vec + bascule via feature flag
 - `5cd6f8c` feat(phase-5): runtime scripted serveur + UI joueur + dispatch addNode
 - `d264c56` chore(claude): invoquer fixture-auditor depuis /phase finish quand YAML modifié
 - `cb317a5` ci: ajouter checks pnpm check + pnpm test:narrative sur PRs

@@ -2,6 +2,7 @@ package webservice
 
 import (
 	"TestNLP/pkg/censorship"
+	"TestNLP/pkg/classify"
 	"TestNLP/pkg/data_persistence"
 	"TestNLP/pkg/dictionnary"
 	"TestNLP/pkg/libs"
@@ -17,6 +18,16 @@ import (
 	"time"
 )
 
+const (
+	// DefaultMistralModel : modèle Mistral utilisé quand `MISTRAL_MODEL` n'est pas
+	// défini (cf. design doc §12 Phase 7 — latence + coût minimaux du catalogue).
+	DefaultMistralModel = "mistral-small-latest"
+	// LLMHTTPTimeout : budget de latence d'un appel Mistral. Le critère §12 vise
+	// P95 < 2s ; 30s laisse une marge pour les cold-starts et garantit que le
+	// fallback word2vec se déclenche avant que SvelteKit timeout sa requête.
+	LLMHTTPTimeout = 30 * time.Second
+)
+
 type ServerAgent struct {
 	sync.Mutex
 	id       string
@@ -30,6 +41,16 @@ type ServerAgent struct {
 	// client TS retombe sur le stub.
 	ClassifyModel *word2vec.Model
 	ClassifyDict  *dictionnary.Dictionnary
+
+	// Phase 7 — config du backend LLM Mistral (cf. design doc §12 Phase 7). Le
+	// switch entre `word2vec` et `llm` est interne au handler /api/classify ;
+	// l'endpoint reste unique. Si `llm` échoue (key absente, HTTP non-2xx, JSON
+	// cassé, timeout), le handler retombe sur word2vec automatiquement.
+	ClassifyBackend string       // CLASSIFY_BACKEND : "word2vec" (défaut) | "llm"
+	MistralAPIURL   string       // MISTRAL_API_URL : override, défaut classify.MistralEndpoint
+	MistralAPIKey   string       // MISTRAL_API_KEY : Bearer token (requis si llm)
+	MistralModel    string       // MISTRAL_MODEL : défaut DefaultMistralModel
+	HTTPClient      *http.Client // injecté pour testabilité (httptest.Client)
 }
 
 func NewServerAgent(addr string) *ServerAgent {
@@ -37,6 +58,7 @@ func NewServerAgent(addr string) *ServerAgent {
 	sessionsData, ok, err := saver.LoadSessionData()
 
 	classifyModel, classifyDict := loadClassifyModel()
+	llmCfg := loadLLMConfig()
 
 	//si une sauvegarde existe, la charger
 	if ok {
@@ -44,14 +66,69 @@ func NewServerAgent(addr string) *ServerAgent {
 		if err != nil {
 			fmt.Println("[Warning] Impossible de charger les données de sauvegarde :", err)
 		}
-		return &ServerAgent{sync.Mutex{}, addr, addr, sessions, saver, classifyModel, classifyDict}
+		return newAgent(addr, sessions, saver, classifyModel, classifyDict, llmCfg)
 	} else {
 		if err != nil {
 			fmt.Println("[Warning] Fichier de sauvegarde inexistant", err)
 		}
-		return &ServerAgent{sync.Mutex{}, addr, addr, map[string]*censorship.Session{}, saver, classifyModel, classifyDict}
+		return newAgent(addr, map[string]*censorship.Session{}, saver, classifyModel, classifyDict, llmCfg)
 	}
 
+}
+
+type llmConfig struct {
+	backend string
+	apiURL  string
+	apiKey  string
+	model   string
+}
+
+func loadLLMConfig() llmConfig {
+	backend := os.Getenv("CLASSIFY_BACKEND")
+	if backend == "" {
+		backend = "word2vec"
+	}
+	apiURL := os.Getenv("MISTRAL_API_URL")
+	if apiURL == "" {
+		apiURL = classify.MistralEndpoint
+	}
+	model := os.Getenv("MISTRAL_MODEL")
+	if model == "" {
+		model = DefaultMistralModel
+	}
+	apiKey := os.Getenv("MISTRAL_API_KEY")
+	if backend == "llm" {
+		if apiKey == "" {
+			log.Printf("[Warning] CLASSIFY_BACKEND=llm but MISTRAL_API_KEY is empty — /api/classify will fall back to word2vec on every request")
+		} else {
+			log.Printf("/api/classify LLM backend enabled (model=%s)", model)
+		}
+	}
+	return llmConfig{backend: backend, apiURL: apiURL, apiKey: apiKey, model: model}
+}
+
+func newAgent(
+	addr string,
+	sessions map[string]*censorship.Session,
+	saver *data_persistence.PersistenceHandler,
+	classifyModel *word2vec.Model,
+	classifyDict *dictionnary.Dictionnary,
+	llm llmConfig,
+) *ServerAgent {
+	return &ServerAgent{
+		Mutex:           sync.Mutex{},
+		id:              addr,
+		addr:            addr,
+		Sessions:        sessions,
+		Saver:           saver,
+		ClassifyModel:   classifyModel,
+		ClassifyDict:    classifyDict,
+		ClassifyBackend: llm.backend,
+		MistralAPIURL:   llm.apiURL,
+		MistralAPIKey:   llm.apiKey,
+		MistralModel:    llm.model,
+		HTTPClient:      &http.Client{Timeout: LLMHTTPTimeout},
+	}
 }
 
 // loadClassifyModel : best-effort. Retourne (nil, nil) si le fichier modèle n'existe

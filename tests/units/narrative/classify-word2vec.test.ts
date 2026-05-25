@@ -52,11 +52,38 @@ describe('createClassifyWord2vec — payload et mapping de la réponse', () => {
 		expect(result).toEqual({ intent: 'SYSTEME', confidence: 0.82 });
 	});
 
-	test("Ne pose JAMAIS de classification (réservé au LLM Phase 7)", async () => {
+	test('Phase 7 : propage `classification` depuis le payload Go (résout dette 3036)', async () => {
+		// Le backend LLM Mistral peut poser `classification` (taxonomie 3036) ; le
+		// client TS ne distingue PAS LLM vs word2vec côté serveur Go (même endpoint),
+		// donc il doit propager le champ chaque fois qu'il est non-vide.
 		fetchSpy.mockResolvedValue({
 			ok: true,
-			// Même si le Go renvoyait une classification (cas futur), on l'ignore.
-			json: async () => ({ intent: 'SYSTEME', confidence: 0.5, classification: 'CONFORME' })
+			json: async () => ({ intent: 'REPONDRE', confidence: 0.9, classification: 'CONFORME' })
+		});
+		const classify = createClassifyWord2vec('http://ia.test');
+		const result = await classify('le chien aboie', '', intents);
+		expect(result).toEqual({ intent: 'REPONDRE', confidence: 0.9, classification: 'CONFORME' });
+	});
+
+	test("Pas de classification dans le payload Go → champ absent du résultat", async () => {
+		// Backend word2vec ne pose jamais classification → le champ doit rester absent
+		// pour que les conditions `classification_is:` retombent en no-match plutôt
+		// qu'en match sur chaîne vide.
+		fetchSpy.mockResolvedValue({
+			ok: true,
+			json: async () => ({ intent: 'SYSTEME', confidence: 0.5 })
+		});
+		const classify = createClassifyWord2vec('http://ia.test');
+		const result = await classify('texte', '', intents);
+		expect(result).not.toHaveProperty('classification');
+	});
+
+	test('classification vide string → champ omis du résultat', async () => {
+		// Mistral peut renvoyer "classification":"" quand non pertinent ; on ne
+		// propage pas une chaîne vide (équivalent à pas de classification).
+		fetchSpy.mockResolvedValue({
+			ok: true,
+			json: async () => ({ intent: 'SYSTEME', confidence: 0.5, classification: '' })
 		});
 		const classify = createClassifyWord2vec('http://ia.test');
 		const result = await classify('texte', '', intents);
