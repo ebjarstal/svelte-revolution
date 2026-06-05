@@ -29,6 +29,11 @@
       "yourScenarios": "あなたのシナリオ",
       "createYourScenario": "シナリオを作成",
       "createScenario": "シナリオを作成",
+      "uploadScenario": "シナリオをアップロード",
+      "uploadHelp": "LLMゲームマスターのシナリオYAMLファイルをアップロードします。作成前にコンパイルと検証が行われます。",
+      "chooseYaml": ".yaml ファイルを選択",
+      "uploadButton": "アップロード",
+      "uploadSuccess": "シナリオが正常にアップロードされました",
       "newScenario": "新しいシナリオ",
       "editScenario": "シナリオを編集",
       "deleteScenario": "シナリオを削除",
@@ -78,7 +83,8 @@
     "noNodeSelected": "ノードが選択されていません",
     "eventHidden": "別のチーム向けのイベント",
     "replyingTo": "返信先",
-    "contribute": "投稿する"
+    "contribute": "投稿する",
+    "gamemasterUnavailable": "ゲームマスターは現在一時的に利用できません。しばらくしてからもう一度お試しください。"
   },
   "scenario": {
     "scenario": "シナリオ",

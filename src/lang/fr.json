@@ -30,6 +30,11 @@
       "yourScenarios": "Vos scénarios",
       "createYourScenario": "Creez votre scénario",
       "createScenario": "Créer un scénario",
+      "uploadScenario": "Importer un scénario",
+      "uploadHelp": "Importez un fichier YAML de scénario LLM (game master). Il sera compilé et validé avant la création.",
+      "chooseYaml": "Choisir un fichier .yaml",
+      "uploadButton": "Importer",
+      "uploadSuccess": "Scénario importé avec succès",
       "newScenario": "Nouveau scénario",
       "editScenario": "Modifier le scénario",
       "deleteScenario": "Supprimer le scénario",
@@ -80,7 +85,8 @@
     "eventHidden": "Événement pour un autre camp",
 	"replyingTo": "Répondre à",
 	"contribute": "Contribuer",
-	"addAudio": "Ajouter un fichier audio"
+	"addAudio": "Ajouter un fichier audio",
+	"gamemasterUnavailable": "Le maître du jeu est momentanément indisponible. Réessaie dans quelques instants."
   },
   "scenario": {
     "scenario": "Scénario",

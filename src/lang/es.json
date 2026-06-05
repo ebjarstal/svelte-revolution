@@ -29,6 +29,11 @@
       "yourScenarios": "Tus escenarios",
       "createYourScenario": "Crea tu escenario",
       "createScenario": "Crear un escenario",
+      "uploadScenario": "Subir un escenario",
+      "uploadHelp": "Sube un archivo YAML de escenario LLM (game master). Se compilará y validará antes de crearlo.",
+      "chooseYaml": "Elegir un archivo .yaml",
+      "uploadButton": "Subir",
+      "uploadSuccess": "Escenario subido correctamente",
       "newScenario": "Nuevo escenario",
       "editScenario": "Editar el escenario",
       "deleteScenario": "Eliminar el escenario",
@@ -78,7 +83,8 @@
     "noNodeSelected": "Ningún nodo seleccionado",
     "eventHidden": "Evento para otro bando",
     "replyingTo": "Responder a",
-    "contribute": "Contribuir"
+    "contribute": "Contribuir",
+    "gamemasterUnavailable": "El maestro del juego no está disponible por el momento. Inténtalo de nuevo en unos instantes."
   },
   "scenario": {
     "scenario": "Escenario",

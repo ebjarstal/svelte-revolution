@@ -15,6 +15,7 @@
 
 	const tabs = [
 		{ href: '/admin/scenario/create', label: $t('admin.scenario.createScenario') },
+		{ href: '/admin/scenario/upload', label: $t('admin.scenario.uploadScenario') },
 		{ href: '/admin/sessions/create', label: $t('admin.session.createSession') },
 		{ href: '/admin/user/create', label: $t('admin.user.createUser') }
 	] as const;

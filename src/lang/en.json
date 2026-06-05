@@ -29,6 +29,11 @@
       "yourScenarios": "Your scenarios",
       "createYourScenario": "Create your scenario",
       "createScenario": "Create a scenario",
+      "uploadScenario": "Upload a scenario",
+      "uploadHelp": "Upload an LLM game-master scenario YAML file. It will be compiled and validated before creation.",
+      "chooseYaml": "Choose a .yaml file",
+      "uploadButton": "Upload",
+      "uploadSuccess": "Scenario uploaded successfully",
       "newScenario": "New scenario",
       "editScenario": "Edit scenario",
       "deleteScenario": "Delete scenario",
@@ -78,7 +83,8 @@
     "noNodeSelected": "No node selected",
     "eventHidden": "Event for another side",
     "replyingTo": "Replying to",
-    "contribute": "Contribute"
+    "contribute": "Contribute",
+    "gamemasterUnavailable": "The game master is temporarily unavailable. Please try again in a moment."
   },
   "scenario": {
     "scenario": "Scenario",
