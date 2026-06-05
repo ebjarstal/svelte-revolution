@@ -1,4 +1,4 @@
-import { DB_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { apiHealthy, getURL } from '$lib/server/ia';
@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const { sessionId, scenarioId, cookies } = await request.json();
 
-		const pb = new PocketBase(DB_URL);
+		const pb = new PocketBase(env.DB_URL);
 		pb.authStore.loadFromCookie(cookies);
 		if (!pb.authStore.isValid) {
 			return json({ ok: false, message: 'Invalid credentials' });
