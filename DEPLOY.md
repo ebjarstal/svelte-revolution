@@ -67,7 +67,22 @@ overwrite it with `git checkout`/`git pull` of that file. A backup lives in `~/b
 **baked into the SvelteKit image** (`.dockerignore` does not exclude it) and loaded at runtime by
 `start:remote` = `node --env-file=.env.prod ./build/index.js`. It must contain at least:
 `DB_URL=http://pocketbase:8090`, `MISTRAL_API_KEY`, `IA_SERVER_URL=http://iaserver:8000`,
-`ORIGIN=https://babel-revolution.ebjrstl.com`, plus `CSRF_CHECK_ORIGIN`, `PUBLIC_DB_URL`.
+`ORIGIN=https://babel-revolution.ebjrstl.com`, `PB_SUPERUSER_EMAIL` + `PB_SUPERUSER_PASSWORD`
+(see below), plus `CSRF_CHECK_ORIGIN`, `PUBLIC_DB_URL`. Because `.env.prod` is baked at build time,
+**any change to it requires a SvelteKit rebuild** (`build sveltekit` + recreate), not just a restart.
+
+### 2b. The gamemaster needs a dedicated PocketBase superuser
+Playing a gamemaster session persists `Session.state`, a privileged write that authenticates as a
+PocketBase **_superuser** using `PB_SUPERUSER_EMAIL`/`PB_SUPERUSER_PASSWORD` (read at runtime in
+`src/lib/server/gamemaster/turn.ts`). If these are unset or don't match a real superuser, every turn
+fails with "The game master is temporarily unavailable." Create a permanent one and point the env
+vars at it:
+
+```sh
+docker exec pocketbase_c /pocketbase superuser create gamemaster@babel-revolution.local <pass>
+# then set PB_SUPERUSER_EMAIL / PB_SUPERUSER_PASSWORD in .env.prod to match, and rebuild sveltekit
+```
+(This is distinct from the app `Users` accounts and from the legacy, now-unused `PB_BOT_*` vars.)
 
 ### 3. Server-side DB access must use the *runtime* env
 In SvelteKit server code, read `DB_URL` (and other runtime config) via **`$env/dynamic/private`**
