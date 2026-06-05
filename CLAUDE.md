@@ -62,4 +62,14 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## Deployment
+
+Production (`babel-revolution.ebjrstl.com`) runs on an OVH VPS (Docker + nginx), deployed from the
+**`staging`** branch. **Read [`DEPLOY.md`](./DEPLOY.md) before touching prod** — it documents the
+topology and several non-obvious landmines: the committed `docker-compose.yml` is dev-only (prod uses
+a hand-edited, uncommitted one), `.env.prod` is baked into the image, server-side DB access must use
+`$env/dynamic/private` (not `static`), and `db/schema.json` is imported manually.
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
