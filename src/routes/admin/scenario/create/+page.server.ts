@@ -3,14 +3,14 @@ import { createEventsAndEnds, createScenario } from '$lib/scenario';
 import { fullScenarioSchema } from '$lib/zschemas/scenario.schema';
 import { z } from 'zod';
 import PocketBase from 'pocketbase';
-import { DB_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 // TODO: Refacto to use zod schema, errors and translations
 export const actions = {
 	createScenario: async ({ request }) => {
 		const data = await request.formData();
 
-		const pb = new PocketBase(DB_URL);
+		const pb = new PocketBase(env.DB_URL);
 		const pb_cookie = data.get('pb_cookie') as string;
 		pb.authStore.loadFromCookie(pb_cookie);
 

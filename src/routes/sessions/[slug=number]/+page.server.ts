@@ -4,7 +4,7 @@ import { createNewEvents, triggerEnd } from '$lib/server/ia/event';
 import { runGamemasterTurn, ensureWriteAuth } from '$lib/server/gamemaster/turn';
 import { addNodeSchema } from '$lib/zschemas/addNode.schema';
 import PocketBase from 'pocketbase';
-import { DB_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { ClientResponseError } from 'pocketbase';
 import type { GraphNode, Session } from '$types/pocketBase/TableTypes';
 import { type Actions, fail } from '@sveltejs/kit';
@@ -14,7 +14,7 @@ export const actions: Actions = {
 		try {
 			const data = await request.formData();
 
-			const pb = new PocketBase(DB_URL);
+			const pb = new PocketBase(env.DB_URL);
 
 			// * no needs to authenticate, as the session is public
 
@@ -147,7 +147,7 @@ export const actions: Actions = {
 		const sessionId = data.get('session') as string;
 		const pb_cookie = data.get('pb_cookie') as string;
 
-		const pb = new PocketBase(DB_URL);
+		const pb = new PocketBase(env.DB_URL);
 		pb.authStore.loadFromCookie(pb_cookie);
 
 		// check if user is superAdmin or author
@@ -209,7 +209,7 @@ export const actions: Actions = {
 		const endId = data.get('endId') as string;
 		const pb_cookie = data.get('pb_cookie') as string;
 
-		const pb = new PocketBase(DB_URL);
+		const pb = new PocketBase(env.DB_URL);
 		pb.authStore.loadFromCookie(pb_cookie);
 
 		// check if user is superAdmin or author

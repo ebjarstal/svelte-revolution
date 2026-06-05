@@ -1,6 +1,6 @@
 import { fail, type Actions } from '@sveltejs/kit';
 import PocketBase from 'pocketbase';
-import { DB_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { compileScenario, ScenarioCompileError } from '$lib/scenario/compile';
 
 // Admin upload flow for LLM-gamemaster scenarios (design §8). Accepts a `.yaml` file,
@@ -11,7 +11,7 @@ export const actions = {
 	uploadScenario: async ({ request }) => {
 		const data = await request.formData();
 
-		const pb = new PocketBase(DB_URL);
+		const pb = new PocketBase(env.DB_URL);
 		const pb_cookie = data.get('pb_cookie') as string;
 		pb.authStore.loadFromCookie(pb_cookie);
 
