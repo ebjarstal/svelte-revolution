@@ -1,11 +1,12 @@
 import { createNode } from '$lib/nodes';
 import { censorNode } from '$lib/server/ia';
 import { createNewEvents, triggerEnd } from '$lib/server/ia/event';
+import { runGamemasterTurn, ensureWriteAuth } from '$lib/server/gamemaster/turn';
 import { addNodeSchema } from '$lib/zschemas/addNode.schema';
 import PocketBase from 'pocketbase';
 import { DB_URL } from '$env/static/private';
 import { ClientResponseError } from 'pocketbase';
-import type { GraphNode } from '$types/pocketBase/TableTypes';
+import type { GraphNode, Session } from '$types/pocketBase/TableTypes';
 import { type Actions, fail } from '@sveltejs/kit';
 
 export const actions: Actions = {
@@ -36,11 +37,31 @@ export const actions: Actions = {
 			}
 
 			// maybe cache the session data to avoid a round trip on every added node
-			const sessionData = await pb.collection('Session').getOne(nodeData.session, {expand: 'scenario'});
+			const sessionData = await pb
+				.collection('Session')
+				.getOne<Session>(nodeData.session, { expand: 'scenario' });
+			const isGamemaster = sessionData.expand?.scenario?.engine === 'gamemaster';
 			let censorResponse: Awaited<ReturnType<typeof censorNode>> | null = null;
-			if (sessionData.expand?.scenario.ai) {
+			if (!isGamemaster && sessionData.expand?.scenario?.ai) {
 				censorResponse = await censorNode(nodeData);
 				nodeData = { ...nodeData, ...censorResponse.node };
+			}
+
+			if (isGamemaster) {
+				// Persisting engine state needs a PocketBase superuser. Authenticate up-front — before
+				// the contribution is created — so a misconfigured superuser fails cleanly instead of
+				// leaving an orphan contribution with no narration response. (The play client is
+				// otherwise unauthenticated, which is also why the rollback below can delete the node.)
+				try {
+					await ensureWriteAuth(pb);
+				} catch (e) {
+					console.error('gamemaster auth failed:', e);
+					return fail(502, {
+						success: false,
+						error: 'The game master could not respond. Please try again.',
+						errorKey: 'inSession.gamemasterUnavailable'
+					});
+				}
 			}
 
 			const node = await createNode(
@@ -56,6 +77,28 @@ export const actions: Actions = {
 					audio: nodeData.audio
 				}
 			);
+			if (isGamemaster) {
+				// Deterministic engine + Mistral classification produce the authored response node(s).
+				// Auth already succeeded above and classify() swallows Mistral errors (returns {}), so a
+				// throw here means the engine step or a PocketBase write failed after the contribution
+				// was stored — roll it back (pb is authenticated) to keep the graph consistent with
+				// engine state and let the player retry without stacking orphan nodes.
+				try {
+					await runGamemasterTurn(pb, sessionData, String(node.id), nodeData.text);
+				} catch (e) {
+					console.error('gamemaster turn failed:', e);
+					try {
+						await pb.collection('Node').delete(String(node.id));
+					} catch (rollbackErr) {
+						console.error('failed to roll back contribution node:', rollbackErr);
+					}
+					return fail(502, {
+						success: false,
+						error: 'The game master could not respond. Please try again.',
+						errorKey: 'inSession.gamemasterUnavailable'
+					});
+				}
+			}
 			if (censorResponse) {
 			  if (censorResponse?.triggerEvent && censorResponse.events) {
 				  try {
