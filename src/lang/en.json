@@ -27,6 +27,7 @@
     "scenario": {
       "language": "Language",
       "yourScenarios": "Your scenarios",
+      "noScenarios": "No scenarios yet.",
       "createYourScenario": "Create your scenario",
       "createScenario": "Create a scenario",
       "uploadScenario": "Upload a scenario",
@@ -34,6 +35,11 @@
       "chooseYaml": "Choose a .yaml file",
       "uploadButton": "Upload",
       "uploadSuccess": "Scenario uploaded successfully",
+      "uploadSuccessTitle": "Scenario «{title}» created and validated",
+      "openInEditor": "Open in editor",
+      "downloadTemplate": "Download a template",
+      "tutoTitle": "How to write a scenario",
+      "tutoBody": "A scenario is written in YAML with these sections:\n• meta: unique id, title, language.\n• prologue: the intro text shown to the player.\n• state: variables, flags and counters that change during play.\n• classifiers: tell the AI how to sort the player's answer into labels. The AI ONLY classifies; all displayed text is yours.\n• decisions: route to the next node based on the label and state.\n• nodes: the steps of the story (text + decision). The « start » node is required.\n• endings: the endings, triggered by a condition.\nEverything is validated on upload: errors (broken reference, undeclared flag…) are listed precisely. Download the template to start from a working base.",
       "newScenario": "New scenario",
       "editScenario": "Edit scenario",
       "deleteScenario": "Delete scenario",
@@ -42,7 +48,22 @@
       "scenarioIsNotValide": "The scenario is not valid",
       "useAi": "Use AI",
       "start": "Start",
-      "informations": "Information"
+      "informations": "Information",
+      "edit": {
+        "title": "Title",
+        "text": "Text",
+        "prologue": "Prologue",
+        "nodes": "Nodes",
+        "endings": "Endings",
+        "classifiers": "Classifiers (AI)",
+        "instructions": "Instructions",
+        "labels": "Labels",
+        "description": "Description",
+        "graph": "Scenario graph",
+        "save": "Save changes",
+        "saved": "Changes saved",
+        "saveFailed": "Failed to save changes"
+      }
     },
     "user": {
       "createUser": "Create a user",

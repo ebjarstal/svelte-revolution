@@ -1,0 +1,103 @@
+# =============================================================================
+# MODÈLE de scénario « gamemaster » (LLM) — exemple minimal et commenté.
+# Remplace les textes par les tiens, garde la structure.
+#
+# Principe : à chaque tour, le joueur écrit une réponse. L'IA (Mistral) NE FAIT
+# QUE la classer dans une étiquette contrainte. Tout le reste — quel texte
+# afficher, vers quel noeud aller, quelles fins déclencher — est décidé de façon
+# déterministe par le moteur, à partir de ce fichier.
+#
+# Tout est validé à l'upload : une référence cassée (transition vers un noeud
+# inexistant, drapeau non déclaré…) affiche la liste précise des erreurs.
+# Exemples complets : scenarios/3036.yaml et scenarios/helix.yaml du dépôt.
+# =============================================================================
+
+meta:
+  id: "mon_scenario"        # identifiant unique, sans espaces
+  title: "Mon scénario"     # titre affiché dans l'admin
+  lang: fr                  # fr | en | jp
+  schemaVersion: 1
+
+# Texte d'introduction affiché au joueur au tout début.
+prologue: |
+  Bienvenue. Décris ici le contexte de départ de ton histoire.
+
+# -----------------------------------------------------------------------------
+# ÉTAT de la partie : variables numériques, drapeaux (booléens), compteurs.
+# Modifiés par les « effects » des noeuds/transitions, testés par les fins.
+# -----------------------------------------------------------------------------
+state:
+  vars:
+    score: 0
+  flags:
+    - a_repondu             # drapeau, faux par défaut
+
+# -----------------------------------------------------------------------------
+# CLASSIFIEURS : disent à l'IA comment ranger la réponse du joueur dans une
+# étiquette. C'est la SEULE chose que fait l'IA.
+# -----------------------------------------------------------------------------
+classifiers:
+  evaluation:
+    instructions: |
+      Classe la réponse du joueur : COOPERATIF s'il joue le jeu et répond
+      sincèrement, REFUS s'il refuse ou élude la question.
+    output:
+      label:
+        - { id: COOPERATIF, description: "Le joueur répond sincèrement." }
+        - { id: REFUS, description: "Le joueur refuse ou détourne la question." }
+
+# -----------------------------------------------------------------------------
+# DÉCISIONS : associent un classifieur à des transitions. Évaluées de haut en
+# bas ; la première dont le « when » est vrai gagne.
+# -----------------------------------------------------------------------------
+decisions:
+  d_intro:
+    classifier: evaluation
+    transitions:
+      - { when: { label: COOPERATIF }, to: n_question }
+      - { when: { label: REFUS }, to: n_question }      # on continue quand même
+
+  d_question:
+    classifier: evaluation
+    transitions:
+      - { when: { label: COOPERATIF }, to: fin_bonne }
+      - { when: { label: REFUS }, to: fin_neutre }
+
+# -----------------------------------------------------------------------------
+# NOEUDS : les étapes de l'histoire. Chaque noeud a un « text » (affiché tel
+# quel) et en général une « decision ». Le noeud « start » est obligatoire.
+# -----------------------------------------------------------------------------
+nodes:
+  - id: start
+    type: start
+    title: "Introduction"
+    text: |
+      Bonjour. Es-tu prêt à commencer ? Réponds librement.
+    decision: d_intro
+
+  - id: n_question
+    title: "La question"
+    text: |
+      Très bien. Première question : raconte ta journée d'hier.
+    effects: { flags: { a_repondu: true }, vars: { score: 1 } }
+    decision: d_question
+
+# -----------------------------------------------------------------------------
+# FINS : déclenchées quand leur « when » devient vrai. « terminal: true »
+# termine la partie. Une fin ciblée directement par une transition peut utiliser
+# « when: { never: true} » pour n'être atteinte que par cette transition.
+# -----------------------------------------------------------------------------
+endings:
+  - id: fin_bonne
+    title: "Fin — coopération"
+    terminal: true
+    when: { var: { score: { gte: 1 } } }
+    text: |
+      Merci pour ta participation. Fin positive.
+
+  - id: fin_neutre
+    title: "Fin — neutre"
+    terminal: true
+    when: { never: true }
+    text: |
+      La session se termine. Fin neutre.
