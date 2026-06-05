@@ -1,0 +1,1178 @@
+# Scenario "Helix" — enquête de sabotage à bord d'un vaisseau Helix Corp.
+# Transcription into the LLM-gamemaster YAML format (see docs/llm-gamemaster-design.md).
+#
+# This scenario is NON-LINEAR: the LLM classifies the player's contribution into an
+# `intent` (+ a `target` character and any `evidencePresented`), and the engine routes via
+# guarded transitions. Most cross-cutting edges live in `global.decision` so the player can
+# reach a character / present a clue / accuse from (almost) anywhere. Evidence is stored as
+# boolean flags (P1..P10); an `actions` counter (18) bounds the investigation.
+
+meta:
+  id: "helix"
+  title: "Helix"
+  lang: fr
+  schemaVersion: 1
+
+prologue: |
+  SYNOPSIS
+
+  Helix Corp est partout. Ce sont eux qui financent les stations, qui gèrent les routes
+  commerciales et qui exploitent les ressources dès qu'une nouvelle planète devient
+  intéressante. Tu ne connais pas tous les détails, mais tu sais une chose : quand Helix
+  envoie un équipage quelque part, ce n'est jamais pour rien.
+
+  Ça fait trois ans que tu travailles pour eux. Trois ans de missions qui finissent par toutes
+  se ressembler : du transport, des inspections et de la maintenance, en boucle. Tu fais ton
+  travail, sans te poser de questions.
+
+  Cette mission devait être simple et rapide. Quatre jours de trajet jusqu'à Kepler-9, une
+  vérification de routine, puis retour sur Terre. Cependant, quelques semaines avant le départ,
+  des sondes ont détecté un gisement d'Irisite sur la planète. L'Irisite est un minerai rare,
+  très recherché. Depuis cette découverte, l'ambiance au sein d'Helix Corp a changée. Personne
+  n'en parle vraiment, mais ça se voit que ce voyage n'est plus une simple inspection.
+
+  Le début de la mission s'est bien passée, malgré les quelques tensions au sein de l'équipage.
+
+  Tu t'es endormi normalement à la fin du troisième jour.
+
+  À 03:12, l'alarme te réveille.
+
+# ---------------------------------------------------------------------------
+# Per-session state
+# ---------------------------------------------------------------------------
+state:
+  vars: {}
+  flags:
+    - P1_SABOTAGE_CONFIRME        # N2.1  : corrections de trajectoire désactivées manuellement
+    - P2_ACCES_0307               # N2.2  : accès manuel au système à 03:07, utilisateur masqué
+    - P3_LOGS_EFFACES             # N2.2  : logs manuellement effacés 5 min avant l'alarme
+    - P4_AUTORISATION_MULTIPLE    # N2.3  : verrouillage exige navigation + sécurité
+    - P5_ACCES_EQUIPAGE           # N2.4  : liste des profils autorisés
+    - P6_DIRECTIVE_HELIX          # N7.4  : directive HLX-K9 contrôle de l'information
+    - P7_PILOTE_REVEILLE          # N4.2  : Nolan admet être allé au pont à 03:07
+    - P8_IRISITE_DANGEREUSE       # N5.2  : Irisite provoque des interférences/effets
+    - P9_SYMPTOMES_EQUIPAGE       # N6.2  : symptômes (sommeil, stress) sur l'équipage
+    - P10_KIRA_A_ACCES_SUPERIEUR  # N2.5  : Kira a un accès prioritaire supérieur
+  counters:
+    actions: 18                   # each authored main node costs 1 action; accusation costs 0
+
+# ---------------------------------------------------------------------------
+# Classifier — one shared intent taxonomy for the whole game.
+# ---------------------------------------------------------------------------
+classifiers:
+  helix_intent:
+    instructions: |
+      Tu analyses la contribution du joueur dans une enquête à bord d'un vaisseau spatial
+      saboté. Tu produis trois choses : l'intention principale (label), la cible éventuelle
+      (target : un membre d'équipage ou le système), et la preuve éventuellement invoquée
+      (evidencePresented).
+      Choisis UN seul label, le plus précis possible :
+      - SYSTEME : tente de réparer/restaurer la navigation ou agit sur le terminal de façon
+        générale, SANS demander les logs, l'état, ni les accès.
+      - LOGS : veut consulter les journaux de bord, l'historique, les enregistrements, les logs,
+        ou savoir ce qui s'est passé à un moment donné.
+      - COMPRENDRE : demande l'état général du vaisseau, un diagnostic, un résumé de la
+        situation, une explication de ce qui se passe.
+      - ACCES : demande QUI avait les droits, les autorisations, les niveaux d'accès, ou qui
+        pouvait intervenir sur le système (on cherche une personne via ses permissions).
+      - OBSERVER : reste immobile, observe, écoute, réfléchit, sans parler ni agir.
+      - INTERROGER : pose une question générale à tout l'équipage sans cibler une personne.
+      - EQUIPAGE : veut rejoindre l'équipage, aller dans le couloir, parler aux autres, ou
+        voir/parler à un personnage précis (mettre alors son nom dans target).
+      - SUSPECTER : soupçonne ou met la pression sur un personnage précis, sans accusation finale.
+      - PREUVE : confronte un PERSONNAGE précis (target OBLIGATOIRE) avec une preuve. Si aucun
+        personnage n'est visé, ce n'est PAS PREUVE : utilise plutôt LOGS, SYSTEME ou ACCES.
+      - ACCUSER : accusation finale explicite (« j'accuse X », « c'est X », « le coupable est X »).
+      target : nolan (pilote), elina (scientifique), arman (médecin), kira (sécurité Helix),
+      equipage (tous), systeme (le terminal), ou null si aucune cible.
+    output:
+      label:
+        - { id: SYSTEME,    description: "répare/agit sur le terminal en général (pas logs/état/accès)" }
+        - { id: LOGS,       description: "consulter les journaux/historique/logs du système" }
+        - { id: COMPRENDRE, description: "demande une explication/analyse/état général" }
+        - { id: OBSERVER,   description: "observe sans parler" }
+        - { id: INTERROGER, description: "question générale à tout le monde" }
+        - { id: EQUIPAGE,   description: "veut rejoindre/parler à l'équipage" }
+        - { id: ACCES,      description: "demande qui avait les droits/autorisations/accès au système" }
+        - { id: SUSPECTER,  description: "soupçonne fortement un personnage (pas final)" }
+        - { id: PREUVE,     description: "confronte un personnage avec une preuve" }
+        - { id: ACCUSER,    description: "accusation finale explicite d'un personnage" }
+      target:
+        nullable: true
+        values: [nolan, elina, arman, kira, equipage, systeme]
+      evidencePresented:
+        nullable: true
+        values:
+          - P1_SABOTAGE_CONFIRME
+          - P2_ACCES_0307
+          - P3_LOGS_EFFACES
+          - P4_AUTORISATION_MULTIPLE
+          - P5_ACCES_EQUIPAGE
+          - P6_DIRECTIVE_HELIX
+          - P7_PILOTE_REVEILLE
+          - P8_IRISITE_DANGEREUSE
+          - P9_SYMPTOMES_EQUIPAGE
+          - P10_KIRA_A_ACCES_SUPERIEUR
+
+# ---------------------------------------------------------------------------
+# Global decision — evaluated every turn BEFORE the current node's local decision.
+# Order matters: first matching transition wins.
+# ---------------------------------------------------------------------------
+global:
+  consumePerMainNode: 1      # every authored node created costs 1 action (except endings/accusation)
+  decision:
+    classifier: helix_intent
+    transitions:
+      # ----- Final accusation (reachable anytime) -----
+      - { when: { label: ACCUSER }, to: n13_accusation }
+
+      # ----- Present a piece of evidence to a character -----
+      - { when: { label: PREUVE, target: nolan }, to: n9_preuve_nolan }
+      - { when: { label: PREUVE, target: elina }, to: n10_preuve_elina }
+      - { when: { label: PREUVE, target: arman }, to: n11_preuve_arman }
+      - { when: { label: PREUVE, target: kira },  to: n12_preuve_kira }
+
+      # ----- Suspect a character (soft accusation) -----
+      - { when: { label: SUSPECTER, target: nolan }, to: n4_5_nolan_accuse }
+      - { when: { label: SUSPECTER, target: elina }, to: n5_4_elina_accusee }
+      - { when: { label: SUSPECTER, target: arman }, to: n6_4_arman_accuse }
+      - { when: { label: SUSPECTER, target: kira, countFlags: { of: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR], gte: 2 } }, to: n7_5_kira_pression }
+      - { when: { label: SUSPECTER, target: kira },  to: n7_6_kira_trop_tot }
+
+      # ----- Reach a character from anywhere after the corridor (N3) -----
+      - { when: { target: nolan, from: ["after:n3"] }, to: n4_nolan_contact }
+      - { when: { target: elina, from: ["after:n3"] }, to: n5_elina_contact }
+      - { when: { target: arman, from: ["after:n3"] }, to: n6_arman_contact }
+      - { when: { target: kira,  from: ["after:n3"] }, to: n7_kira_contact }
+
+      # ----- Go to the crew / corridor -----
+      - { when: { label: EQUIPAGE }, to: n3_equipage }
+
+      # ----- Pure observation from anywhere without a target -----
+      - { when: { label: OBSERVER }, to: n8_observer_vaisseau }
+
+# ---------------------------------------------------------------------------
+# Decisions used by specific nodes (local routing). The global decision still runs first.
+# ---------------------------------------------------------------------------
+decisions:
+
+  d_n1:                          # from N1 (réveil)
+    classifier: helix_intent
+    transitions:
+      - { when: { label: SYSTEME },    to: n2_terminal }
+      - { when: { label: LOGS },       to: n2_terminal }
+      - { when: { label: COMPRENDRE }, to: n2_terminal }
+      - { when: { label: ACCES },      to: n2_terminal }
+      - { when: { label: OBSERVER },   to: n8_observer_vaisseau }
+      - { when: { label: EQUIPAGE },   to: n3_equipage }
+
+  d_terminal:                    # from N2
+    classifier: helix_intent
+    transitions:
+      - { when: { label: ACCES, flag: P5_ACCES_EQUIPAGE }, to: n2_5_acces_superieur }  # N2.5: depuis N2.4
+      - { when: { label: ACCES }, to: n2_4_acces }                                      # N2.4: qui avait accès
+      - { when: { label: COMPRENDRE }, to: n2_1_etat_vaisseau }
+      - { when: { label: LOGS }, to: n2_2_logs }                                        # N2.2: consulter les logs
+      - { when: { label: SYSTEME }, to: n2_3_reparation }                               # N2.3: tenter une réparation
+
+  d_etat:                        # from N2.1
+    classifier: helix_intent
+    transitions:
+      - { when: { label: LOGS }, to: n2_2_logs }          # logs/historique
+      - { when: { label: SYSTEME }, to: n2_3_reparation }
+      - { when: { label: COMPRENDRE }, to: n2_3_reparation }
+
+  d_corridor:                    # from N3 (corridor hub)
+    classifier: helix_intent
+    transitions:
+      - { when: { label: INTERROGER }, to: n3_1_question_tous }
+      - { when: { label: OBSERVER },   to: n3_2_observer_equipage }
+      - { when: { target: nolan }, to: n4_nolan_contact }
+      - { when: { target: elina }, to: n5_elina_contact }
+      - { when: { target: arman }, to: n6_arman_contact }
+      - { when: { target: kira },  to: n7_kira_contact }
+
+  d_nolan:                       # from N4 (Nolan)
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P2_ACCES_0307 }, to: n4_2_nolan_0307 }
+      - { when: { label: SUSPECTER, flag: P7_PILOTE_REVEILLE }, to: n4_3_nolan_cache }  # press him after he admits
+      - { when: { label: SUSPECTER }, to: n4_5_nolan_accuse }
+      - { when: { label: SYSTEME }, to: n4_4_nolan_acces }
+      - { when: { label: COMPRENDRE }, to: n4_1_nolan_panne }
+
+  d_elina:                       # from N5 (Elina)
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P6_DIRECTIVE_HELIX }, to: n5_5_elina_directive }
+      - { when: { label: SUSPECTER }, to: n5_4_elina_accusee }
+      - { when: { evidence: P8_IRISITE_DANGEREUSE }, to: n5_2_irisite }   # mentions Irisite/Kepler-9
+      - { when: { label: SYSTEME }, to: n5_3_elina_acces }
+      - { when: { label: COMPRENDRE }, to: n5_1_elina_analyse }
+
+  d_arman:                       # from N6 (Arman)
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P2_ACCES_0307 }, to: n6_5_arman_0307 }
+      - { when: { label: SUSPECTER }, to: n6_4_arman_accuse }
+      - { when: { evidence: P9_SYMPTOMES_EQUIPAGE }, to: n6_2_symptomes }  # asks about health/symptoms
+      - { when: { label: SYSTEME }, to: n6_3_arman_acces }
+      - { when: { label: COMPRENDRE }, to: n6_1_arman_observe }
+      - { when: { label: OBSERVER },  to: n6_1_arman_observe }
+
+  d_kira:                        # from N7 (Kira)
+    classifier: helix_intent
+    transitions:
+      - { when: { label: PREUVE, allFlags: [P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR], countFlags: { of: [P2_ACCES_0307, P3_LOGS_EFFACES, P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR], gte: 3 } }, to: n7_5_kira_pression }
+      - { when: { evidence: P6_DIRECTIVE_HELIX }, to: n7_4_directive_helix }   # demands Helix orders (needs P10 or P5)
+      - { when: { evidence: P2_ACCES_0307 }, to: n7_3_kira_logs }
+      - { when: { label: SYSTEME }, to: n7_2_kira_acces }
+      - { when: { label: COMPRENDRE }, to: n7_1_kira_controle }
+
+  d_accusation:                  # from N13 — route by accused target + evidence sufficiency
+    classifier: helix_intent
+    transitions:
+      - { when: { target: nolan }, to: n13_1_accuser_nolan }
+      - { when: { target: elina }, to: n13_2_accuser_elina }
+      - { when: { target: arman }, to: n13_3_accuser_arman }
+      - { when: { target: kira, allFlags: [P6_DIRECTIVE_HELIX, P10_KIRA_A_ACCES_SUPERIEUR], anyFlags: [P2_ACCES_0307, P3_LOGS_EFFACES, P4_AUTORISATION_MULTIPLE] }, to: n13_5_accuser_kira_preuves }
+      - { when: { target: kira }, to: n13_4_accuser_kira_sans_preuves }
+
+  # preuve routers (text depends on which evidence is shown)
+  d_preuve_nolan:
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P2_ACCES_0307 }, to: n9_nolan_p2 }
+      - { when: { evidence: P4_AUTORISATION_MULTIPLE }, to: n9_nolan_p4 }
+      - { when: { evidence: P10_KIRA_A_ACCES_SUPERIEUR }, to: n9_nolan_p10 }
+  d_preuve_elina:
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P8_IRISITE_DANGEREUSE }, to: n10_elina_p8 }
+      - { when: { evidence: P6_DIRECTIVE_HELIX }, to: n10_elina_p6 }
+      - { when: { evidence: P10_KIRA_A_ACCES_SUPERIEUR }, to: n10_elina_p10 }
+  d_preuve_arman:
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P9_SYMPTOMES_EQUIPAGE }, to: n11_arman_p9 }
+      - { when: { evidence: P6_DIRECTIVE_HELIX }, to: n11_arman_p6 }
+      - { when: { evidence: P10_KIRA_A_ACCES_SUPERIEUR }, to: n11_arman_p10 }
+  d_preuve_kira:
+    classifier: helix_intent
+    transitions:
+      - { when: { evidence: P2_ACCES_0307 }, to: n12_kira_p2 }
+      - { when: { evidence: P3_LOGS_EFFACES }, to: n12_kira_p3 }
+      - { when: { evidence: P10_KIRA_A_ACCES_SUPERIEUR }, to: n12_kira_p10 }
+      - { when: { evidence: P6_DIRECTIVE_HELIX }, to: n12_kira_p6 }
+
+# ---------------------------------------------------------------------------
+# Nodes
+# ---------------------------------------------------------------------------
+nodes:
+
+  - id: start
+    type: start
+    title: "Réveil"
+    text: |
+      À 03:12, l'alarme te réveille.
+    goto: n1_reveil
+
+  # --- NOEUD 1 — RÉVEIL ---
+  - id: n1_reveil
+    title: "Noeud 1 — Réveil"
+    text: |
+      Tu es réveillé par le bruit strident d'une alarme et d'une lumière rouge qui clignote dans
+      la cabine. Une voix automatique, robotique, répète en boucle qu'il y a une défaillance
+      critique du système de navigation et que le vaisseau se dirige vers une zone de débris.
+      L'impact est prévu dans deux heures.
+
+      Puis la voix s'interrompt.
+
+      Un silence total suit, quelques secondes passent, le temps semble être figé : aucun
+      mouvement dans la cabine, et rien ne redémarre. Le système est actif, mais il ne fait plus
+      rien. Il attend une entrée.
+
+      Tu peux essayer de comprendre ce qui se passe, vérifier les systèmes, sortir de la cabine
+      ou simplement observer ce qui t'entoure.
+    decision: d_n1
+
+  # --- NOEUD 2 — TERMINAL PRINCIPAL ---
+  - id: n2_terminal
+    title: "Noeud 2 — Terminal principal"
+    text: |
+      Le terminal mural s'allume lentement. L'interface répond avec du retard. Plusieurs
+      fenêtres s'ouvrent en même temps, certaines incomplètes, d'autres bloquées sur des
+      messages d'erreur. La seule chose visible sur ce terminal est le compte à rebours vers
+      l'impact, les secondes défilent lentement sous tes yeux. La trajectoire du vaisseau
+      continue de se modifier, Kepler-9 semble s'éloigner de plus en plus, mais aucune correction
+      automatique de trajectoire ne se lance.
+
+      Quelque chose ne colle pas. Une panne classique aurait laissé des traces, alors que là, on
+      dirait que cette panne a été prévue ou même contrôlée.
+
+      Tu peux consulter l'état du vaisseau, fouiller les logs, tenter de réparer la navigation ou
+      chercher qui avait accès au système.
+    decision: d_terminal
+
+  - id: n2_1_etat_vaisseau
+    title: "Noeud 2.1 — État du vaisseau"
+    text: |
+      Les moteurs fonctionnent encore mais le système affiche un résumé incomplet. L'alimentation
+      électrique semble être stable et les communications internes sont encore actives. Il ne
+      semble pas avoir eu d'incidents comme une explosion, une collision, ou n'importe quelle
+      panne matérielle majeure. Le seul problème notable est celui de la navigation.
+
+      En effet, les corrections automatiques de trajectoire ont été désactivées. Le vaisseau ne
+      cherche plus à reprendre sa trajectoire et à se diriger vers Kepler-9. Il continue
+      simplement à dériver.
+
+      Le terminal affiche une ligne qui confirme les soupçons :
+
+      CORRECTION AUTOMATIQUE : DÉSACTIVÉE MANUELLEMENT
+
+      Ce n'est pas une panne. Quelqu'un a volontairement empêché le vaisseau de se corriger.
+
+      Preuve débloquée : P1_SABOTAGE_CONFIRME
+    effects: { flags: { P1_SABOTAGE_CONFIRME: true } }
+    decision: d_etat
+
+  - id: n2_2_logs
+    title: "Noeud 2.2 — Logs système"
+    text: |
+      Les logs mettent plusieurs secondes à charger. Certaines lignes apparaissent normalement,
+      mais d'autres sont remplacées par des blocs vides ou des caractères illisibles.
+
+      Tu remontes l'historique jusqu'au moment de la défaillance. Une entrée ressort :
+
+          03:07 - ACCÈS MANUEL AU SYSTÈME DE NAVIGATION
+          UTILISATEUR : MASQUÉ
+          NIVEAU D'AUTORISATION : ÉLEVÉ
+
+      Juste après, plusieurs lignes ont été effacées. Elles n'ont pas été corrompues, elles ont
+      bien été manuellement effacées. Quelqu'un a accédé au système 5 minutes avant l'alarme, et
+      quelqu'un (la même personne ?) a supprimé les logs associés.
+
+      Preuves débloquées : P2_ACCES_0307, P3_LOGS_EFFACES
+    effects: { flags: { P2_ACCES_0307: true, P3_LOGS_EFFACES: true } }
+    decision: d_terminal
+
+  - id: n2_3_reparation
+    title: "Noeud 2.3 — Tentative de réparation"
+    text: |
+      Tu lances une procédure de restauration. Le terminal accepte d'abord la commande, puis la
+      bloque presque aussitôt.
+
+          RESTAURATION REFUSÉE
+          AUTORISATION MULTIPLE REQUISE
+
+      Tu recommences avec ton identifiant de maintenance que tu as grâce à ton statut de
+      technicien. Malheureusement, cela ne fonctionne pas non plus.
+
+      Le verrouillage a été activé après la modification de trajectoire. Celui qui a saboté le
+      système a aussi empêché une réparation simple.
+
+      Le message final reste affiché :
+
+          VALIDATION REQUISE : NAVIGATION + SÉCURITÉ
+
+      Il faut au moins deux niveaux d'accès pour annuler le verrouillage.
+
+      Preuve débloquée : P4_AUTORISATION_MULTIPLE
+    effects: { flags: { P4_AUTORISATION_MULTIPLE: true } }
+    decision: d_terminal
+
+  - id: n2_4_acces
+    title: "Noeud 2.4 — Liste des accès"
+    text: |
+      Le terminal affiche la liste des profils autorisés à intervenir sur la navigation en
+      situation critique.
+
+          NOLAN REYES - PILOTAGE
+          DR ELINA VOSS - SCIENCE / MISSION KEPLER-9
+          ARMAN DELAUNAY - MÉDICAL / BIO-SÉCURITÉ
+          KIRA SOLIS - SÉCURITÉ HELIX
+
+      Le pilote a l'accès technique. La scientifique a l'accès mission. Le médecin a l'accès
+      bio-sécurité. L'agent Helix a l'accès sécurité.
+
+      Preuve débloquée : P5_ACCES_EQUIPAGE
+    effects: { flags: { P5_ACCES_EQUIPAGE: true } }
+    decision: d_terminal
+
+  - id: n2_5_acces_superieur
+    title: "Noeud 2.5 — Accès supérieur"
+    text: |
+      Tu compares les niveaux d'accès. Les trois premiers profils peuvent modifier certains
+      paramètres, mais pas masquer un identifiant dans les logs principaux.
+
+      Un seul profil possède un niveau supérieur :
+
+          KIRA SOLIS - SÉCURITÉ HELIX - ACCÈS PRIORITAIRE
+
+      Le terminal ne dit pas qu'elle a saboté le système. Mais il confirme une chose : si
+      quelqu'un pouvait effacer les traces proprement, c'était elle.
+
+      Preuve débloquée : P10_KIRA_A_ACCES_SUPERIEUR
+    effects: { flags: { P10_KIRA_A_ACCES_SUPERIEUR: true } }
+    decision: d_terminal
+
+  # --- BRANCHE ÉQUIPAGE ---
+  - id: n3_equipage
+    title: "Noeud 3 — Équipage"
+    text: |
+      La porte de ta cabine s'ouvre sur le couloir principal. L'éclairage d'urgence donne à tout
+      le couloir une couleur rouge uniforme, presque effrayante.
+
+      Plusieurs portes sont ouvertes, ce qui n'est pas normal à cette heure… Il semblerait que
+      tout le monde ait été réveillé par cette alarme.
+
+      Le pilote est près de l'accès au pont. La scientifique est un peu en retrait avec sa
+      tablette. Le médecin se tient près de l'infirmerie. L'agent Helix est déjà dans le couloir,
+      elle est immobile et semble assez inquiète, mais que ce soit elle ou les autres membres de
+      l'équipage, personne ne panique. Ce calme est pesant, on dirait que tu es la seule personne
+      qui se soucie de l'impact imminent.
+
+      Tu peux parler à quelqu'un directement, poser une question à tout le monde ou observer
+      leurs réactions.
+    decision: d_corridor
+
+  - id: n3_1_question_tous
+    title: "Noeud 3.1 — Question à tout le monde"
+    text: |
+      Tu poses la question à voix haute.
+
+      Un silence suit. Personne ne se précipite pour répondre.
+
+      Nolan, le pilote, parle en premier. « Le système a lâché. »
+
+      Elina, la scientifique, le corrige aussitôt, sans lever les yeux de sa tablette.
+      « Non. Il a été modifié. »
+
+      Le médecin regarde l'un puis l'autre. Kira Solis ne dit rien.
+    decision: d_corridor
+
+  - id: n3_2_observer_equipage
+    title: "Noeud 3.2 — Observer l'équipage"
+    text: |
+      Tu ne dis rien tout de suite. Tu regardes. Nolan garde les mains près de lui, comme s'il se
+      retenait de toucher encore à une console. Il est nerveux. Elina semble concentrée. Elle lit
+      des données que personne d'autre ne regarde. Arman observe les visages plutôt que les
+      écrans. Il cherche quelque chose chez les autres. Kira, elle, ne regarde ni le terminal ni
+      les portes. Elle te regarde toi.
+
+      La peur n'est pas l'émotion principale qui émane de la situation, il semblerait que ce soit
+      la méfiance.
+    decision: d_corridor
+
+  # --- PERSONNAGE 1 : NOLAN ---
+  - id: n4_nolan_contact
+    title: "Noeud 4 — Premier contact Nolan"
+    text: |
+      Nolan est devant la console de navigation, même si elle ne répond plus. Il ne tape rien,
+      n'essaye pas de réparer cette console. Il est simplement immobile devant cette dernière et
+      la fixe, comme s'il n'arrivait pas à croire ce qui était en train d'arriver.
+
+      Quand tu arrives, il tourne à peine la tête.
+
+      « Si t'es venu me dire que c'est ma faute, gagne du temps et dis-le directement. »
+
+      Sa voix est sèche, mais elle tremble un peu.
+
+      Tu peux lui demander ce qu'il sait, pourquoi il est nerveux, s'il était réveillé à 03:07,
+      ou le confronter avec les logs.
+    decision: d_nolan
+
+  - id: n4_1_nolan_panne
+    title: "Noeud 4.1 — Nolan explique la panne"
+    text: |
+      « Tout était normal jusqu'à l'alarme. Les corrections automatiques étaient actives et la
+      trajectoire était propre. »
+
+      Il regarde la console.
+
+      « Puis tout s'est verrouillé d'un coup. » Il souffle.
+
+      « J'ai déjà vu plein de pannes au cours de ma carrière et ça, ce n'est pas une panne. »
+    decision: d_nolan
+
+  - id: n4_2_nolan_0307
+    title: "Noeud 4.2 — Nolan et l'accès 03:07"
+    text: |
+      Nolan se fige.
+
+      Cette fois, il te regarde vraiment.
+
+      « J'étais réveillé en effet »
+
+      Il baisse la voix.
+
+      « Je n'arrivais pas à dormir. J'ai fait un passage au pont pour vérifier la trajectoire.
+      C'est mon boulot quand même, il n'y a rien de suspect à ça ! »
+
+      Il marque une pause.
+
+      « Mais je n'ai pas lancé de commande critique. Je n'ai rien désactivé. »
+
+      Il sait que ça sonne mal et qu'il semble assez suspect.
+
+      Preuve débloquée : P7_PILOTE_REVEILLE
+    effects: { flags: { P7_PILOTE_REVEILLE: true } }
+    decision: d_nolan
+
+  - id: n4_3_nolan_cache
+    title: "Noeud 4.3 — Nolan cache quelque chose"
+    text: |
+      Nolan serre les dents.
+
+      « Parce que je savais exactement ce que ça donnerait. Avec cette information, tout le monde
+      va se mettre à m'accuser au lieu d'essayer de trouver le vrai coupable. »
+
+      Il se rapproche d'un pas.
+
+      « C'est vrai que j'étais réveillé et que je suis allé au pont. Oui. Mais quand je suis
+      parti, la navigation fonctionnait encore. »
+
+      Il hésite.
+
+      « J'ai vu quelqu'un dans le couloir. Je ne sais pas qui. J'ai juste vu une silhouette, qui
+      venait du secteur sécurité du vaisseau. »
+    decision: d_nolan
+
+  - id: n4_4_nolan_acces
+    title: "Noeud 4.4 — Nolan accès technique"
+    text: |
+      « J'ai accès à la navigation, ce qui signifie que je peux corriger une trajectoire, lancer
+      des procédures d'urgence et reprendre un guidage manuel. »
+
+      Il désigne l'écran noir.
+
+      « Cependant, masquer un identifiant, effacer des logs ou verrouiller une restauration
+      derrière un protocole de sécurité ? Non. Tout cela est au dessus de moi »
+    decision: d_nolan
+
+  - id: n4_5_nolan_accuse
+    title: "Noeud 4.5 — Nolan accusé"
+    text: |
+      « Tu crois vraiment que je saboterais mon propre vaisseau ? »
+
+      Il rit une fois, sans humour.
+
+      « Je suis pilote. Si la navigation meurt, je meurs avec elle. »
+
+      « Oui, j'étais réveillé. Oui, j'étais près du pont. Mais si c'était moi, pourquoi je serais
+      encore là à essayer de comprendre ? Pourquoi je n'aurais pas fui ce vaisseau, qui se dirige
+      clairement vers sa destruction ? »
+    decision: d_nolan
+
+  # --- PERSONNAGE 2 : ELINA ---
+  - id: n5_elina_contact
+    title: "Noeud 5 — Premier contact Elina"
+    text: |
+      Elina est debout près d'un panneau mural, elle tient sa tablette entre ses mains. Elle
+      semble assez calme, loin d'être paniquée, ce qui est agaçant dans une situation pareil. Ne
+      comprend-elle pas la gravité de la situation ?
+
+      Quand tu t'approches, elle parle avant toi.
+
+      « Tu as vu les logs ? »
+
+      Tu peux lui demander ce qu'elle comprend du sabotage, ce qu'elle sait sur l'Irisite,
+      pourquoi elle n'a pas l'air surprise, ou si elle avait une raison d'empêcher la mission
+      d'arriver.
+    decision: d_elina
+
+  - id: n5_1_elina_analyse
+    title: "Noeud 5.1 — Elina analyse le sabotage"
+    text: |
+      « Pour moi, ce qui se passe est très suspect, et est sans doute différent d'une simple
+      panne. Une panne laisse des erreurs incohérentes, alors que là, tout semble aller dans la
+      même direction, comme si c'était orchestré. »
+
+      Elle tourne sa tablette vers toi.
+
+      « Navigation arrêtée, correction désactivée et restauration verrouillée. »
+
+      Elle reprend la tablette.
+
+      « Ce n'est pas un système qui tombe en panne mais un système qui obéit à des ordres. »
+    decision: d_elina
+
+  - id: n5_2_irisite
+    title: "Noeud 5.2 — Elina et l'Irisite"
+    text: |
+      Elina baisse légèrement la voix.
+
+      « L'Irisite n'est pas un simple minerai. Helix le présente comme une ressource stratégique,
+      mais les premières données ne sont pas normales. »
+
+      « Les sondes ont enregistré des interférences autour du gisement, des variations
+      électromagnétiques ont eu des effets sur certains systèmes embarqués. »
+
+      Elle te regarde.
+
+      « Je ne dis pas que l'Irisite a saboté le vaisseau. Je dis qu'Helix savait qu'il y avait un
+      risque, mais ils ont quand même envoyé l'équipage »
+
+      Preuve débloquée : P8_IRISITE_DANGEREUSE
+    effects: { flags: { P8_IRISITE_DANGEREUSE: true } }
+    decision: d_elina
+
+  - id: n5_3_elina_acces
+    title: "Noeud 5.3 — Elina accès mission"
+    text: |
+      « J'ai accès aux paramètres de mission, oui. Je peux consulter les données de Kepler-9,
+      ajuster certains protocoles d'analyse et choisir de prioriser des scans. »
+
+      Elle marque une pause.
+
+      « Mais je ne suis pas pilote. Je ne peux pas prendre le contrôle complet de la navigation
+      seule. »
+
+      Si tu possèdes P4_AUTORISATION_MULTIPLE : « L'autorisation multiple m'inclut peut-être dans
+      la liste. Mais elle ne suffit pas à faire de moi la personne qui a effacé les logs. »
+    decision: d_elina
+
+  - id: n5_4_elina_accusee
+    title: "Noeud 5.4 — Elina accusée"
+    text: |
+      « J'aurais eu une raison, oui. »
+
+      Elle ne fuit pas ton regard.
+
+      « Si Helix exploite l'Irisite sans comprendre ce que c'est, ça peut devenir dangereux.
+      Autant pour nous que pour Kepler-9 »
+
+      Elle laisse passer un silence.
+
+      « Mais saboter le vaisseau ne protège personne si on meurt tous avant d'avoir transmis les
+      données. »
+    decision: d_elina
+
+  - id: n5_5_elina_directive
+    title: "Noeud 5.5 — Elina réagit à la directive Helix"
+    text: |
+      Elina lit la ligne sans parler.
+
+      Son visage ne change presque pas, mais sa main serre un peu plus la tablette.
+
+      « Donc ils ne voulaient pas sécuriser la découverte, ils voulaient simplement sécuriser le
+      silence. »
+
+      Elle respire lentement.
+
+      « Dans ce cas, cherche qui avait autorité pour appliquer cette directive à bord. »
+    decision: d_elina
+
+  # --- PERSONNAGE 3 : ARMAN ---
+  - id: n6_arman_contact
+    title: "Noeud 6 — Premier contact Arman"
+    text: |
+      Arman est près de l'infirmerie, mais il ne regarde pas les écrans médicaux. Il regarde les
+      gens.
+
+      Quand tu approches, il baisse la voix.
+
+      « Tu vas bien ? »
+
+      Dans une autre situation, la question semblerait normale. Ici, elle sonne presque déplacée.
+
+      Tu peux lui demander pourquoi il observe l'équipage, si quelqu'un est malade, ce qu'il pense
+      du sabotage, ou s'il cache quelque chose.
+    decision: d_arman
+
+  - id: n6_1_arman_observe
+    title: "Noeud 6.1 — Arman observe les réactions"
+    text: |
+      « Dans une crise, les gens paniquent ou essayent de se défendre, surtout dans une situation
+      comme la notre. Or là, c'est différent. »
+
+      Il regarde vers le couloir.
+
+      « Nolan a peur d'être accusé. Elina a peur d'avoir raison. Kira… »
+
+      Il s'arrête.
+
+      « Kira est la seule qui n'a pas peur. »
+    decision: d_arman
+
+  - id: n6_2_symptomes
+    title: "Noeud 6.2 — Symptômes"
+    text: |
+      Arman hésite.
+
+      « Rien de grave, ou en tout cas, pas encore. »
+
+      « Depuis l'approche de Kepler-9, certains paramètres ont changé. J'ai remarqué chez
+      plusieurs passagers des micro-tremblements, des troubles du sommeil, des pics de stress
+      sans cause immédiate. »
+
+      Il te regarde.
+
+      « Nolan n'était pas le seul réveillé cette nuit. »
+
+      Preuve débloquée : P9_SYMPTOMES_EQUIPAGE
+    effects: { flags: { P9_SYMPTOMES_EQUIPAGE: true } }
+    decision: d_arman
+
+  - id: n6_3_arman_acces
+    title: "Noeud 6.3 — Arman accès bio-sécurité"
+    text: |
+      « Mon accès ne sert pas à piloter. Il sert à bloquer certaines décisions si la sécurité
+      biologique est compromise. »
+
+      Il se tait un instant.
+
+      « Si je pensais que le vaisseau ramenait quelque chose de dangereux, je pourrais par exemple
+      ralentir une procédure ou demander une quarantaine »
+
+      Il secoue la tête.
+
+      « Mais désactiver la navigation et effacer les logs, non, ce n'est pas mon domaine. Je suis
+      médecin après tout ! »
+
+      Il dit cette dernière phrase avec un léger sourire.
+    decision: d_arman
+
+  - id: n6_4_arman_accuse
+    title: "Noeud 6.4 — Arman accusé"
+    text: |
+      « Je comprends pourquoi tu pourrais penser ça. »
+
+      « Si j'étais certain qu'on représentait un danger, j'aurais déclenché une quarantaine. Pas
+      une trajectoire d'impact. »
+
+      Il baisse les yeux.
+
+      « Je veux empêcher les gens de mourir, pas choisir la manière dont ils meurent. »
+    decision: d_arman
+
+  - id: n6_5_arman_0307
+    title: "Noeud 6.5 — Arman réagit à 03:07"
+    text: |
+      « À cette heure-là, Nolan était réveillé. Je l'ai vu passer près du pont. »
+
+      Il hésite.
+
+      « Elina aussi était active. Sa tablette a synchronisé des données vers 03:05. »
+
+      Puis il ajoute plus bas :
+
+      « Kira était déjà dans le couloir quand je suis sorti. »
+    decision: d_arman
+
+  # --- PERSONNAGE 4 : KIRA ---
+  - id: n7_kira_contact
+    title: "Noeud 7 — Premier contact Kira"
+    text: |
+      Kira Solis se tient au milieu du couloir comme si elle avait choisi l'endroit exact où
+      personne ne pourrait l'ignorer. Elle ne consulte aucun écran, et ne cherche pas
+      d'informations.
+
+      Elle attend simplement.
+
+      Quand tu approches, elle dit : « Rapport. »
+
+      Tu peux lui demander ce qu'elle sait, parler des accès, la confronter aux logs, ou lui
+      demander quels ordres Helix lui a donnés.
+    decision: d_kira
+
+  - id: n7_1_kira_controle
+    title: "Noeud 7.1 — Kira contrôle la situation"
+    text: |
+      « La situation est instable, mais contrôlable. Priorité actuelle : identifier la cause,
+      restaurer la navigation, éviter les accusations inutiles. »
+
+      Elle te regarde.
+
+      « Donc commence par les faits. »
+
+      Le problème, c'est qu'elle ne donne aucun fait.
+    decision: d_kira
+
+  - id: n7_2_kira_acces
+    title: "Noeud 7.2 — Kira et les accès"
+    text: |
+      « J'ai un accès sécurité. Comme prévu par le protocole. »
+
+      Elle répond trop vite.
+
+      Si tu possèdes P10_KIRA_A_ACCES_SUPERIEUR : Tu mentionnes l'accès prioritaire. Son
+      expression ne change pas, mais elle met une seconde de trop à répondre.
+      « L'accès prioritaire existe pour protéger la mission. » « Pas pour la compromettre. »
+    decision: d_kira
+
+  - id: n7_3_kira_logs
+    title: "Noeud 7.3 — Kira face aux logs 03:07"
+    text: |
+      « Un log isolé ne prouve rien. »
+
+      Elle ne demande pas à le voir et ne semble pas surprise.
+
+      « Dans une situation critique, les systèmes enregistrent des anomalies. Il faut éviter les
+      interprétations rapides. »
+
+      Si tu insistes sur l'identifiant masqué : « Certains identifiants sont protégés par
+      protocole. »
+    decision: d_kira
+
+  - id: n7_4_directive_helix
+    title: "Noeud 7.4 — Directive Helix"
+    text: |
+      Kira ne répond pas tout de suite.
+
+      Tu insistes sur les protocoles Helix et sur la mission. Mais surtout sur le fait que
+      l'Irisite vaut trop cher pour qu'un simple équipage de maintenance soit envoyé sans aucunes
+      consignes cachées.
+
+      Le terminal portable de sécurité accroché à sa ceinture reçoit une notification automatique.
+      Tu n'en vois qu'une ligne avant qu'elle le verrouille.
+
+          DIRECTIVE HLX-K9 : PRIORITÉ ABSOLUE - CONTRÔLE DE L'INFORMATION
+
+      Kira remet le terminal contre elle.
+
+      « Tu n'avais pas à voir ça. »
+
+      Preuve débloquée : P6_DIRECTIVE_HELIX
+    effects: { flags: { P6_DIRECTIVE_HELIX: true } }
+    decision: d_kira
+
+  - id: n7_5_kira_pression
+    title: "Noeud 7.5 — Kira sous pression"
+    text: |
+      Pour la première fois, Kira ne répond pas immédiatement. Ce n'est pas de la panique, c'est
+      simplement un calcul. Il est toujours étrange de communiquer avec Kira, à cause de sa
+      nature. Le fait qu'elle soit une IA se ressent, malgré toutes les avancées technologiques
+      dont elle est le fruit.
+
+      « Tu as assemblé des éléments incomplets. »
+
+      Elle avance d'un pas.
+
+      « Tu vois un sabotage tandis que moi, je vois une décision. »
+
+      Elle se reprend aussitôt, comme si le mot lui avait échappé.
+
+      « Une décision de sécurité. »
+    decision: d_kira
+
+  - id: n7_6_kira_trop_tot
+    title: "Noeud 7.6 — Kira accusée trop tôt"
+    text: |
+      « Tu m'accuses parce que tu as peur. C'est un sentiment humain, mais inutile. »
+
+      Elle regarde le compte à rebours.
+
+      « Reviens avec des faits, ou laisse quelqu'un de compétent gérer la crise. »
+    # No ending: pushes the player to keep investigating.
+    decision: d_kira
+
+  # --- OBSERVER ---
+  - id: n8_observer_vaisseau
+    title: "Noeud 8 — Observer la cabine / le vaisseau"
+    text: |
+      Tu prends quelques secondes sans agir.
+
+      Le vaisseau ne donne pas l'impression d'être en train de mourir, ça rend la situation encore
+      plus pesante et étrange. Les murs vibrent et les lumières clignotent, mais les systèmes ne
+      s'effondrent pas, ils continuent à fonctionner comme si de rien était.
+
+      Simplement, ils continuent dans une direction qui poussera le vaisseau à sa perte. Le plus
+      étrange est que quelqu'un a choisi cette destination, même si cette destination signifie un
+      impact inévitable.
+    decision: d_n1
+
+  # --- MONTRER PREUVE (text depends on the evidence shown) ---
+  - id: n9_preuve_nolan
+    title: "Noeud 9 — Montrer preuve à Nolan"
+    text: |
+      Tu montres ce que tu as trouvé à Nolan.
+    decision: d_preuve_nolan
+  - id: n9_nolan_p2
+    title: "Nolan — accès 03:07"
+    text: |
+      Nolan encaisse mal. Il n'explose pas, mais son visage se ferme.
+      « Je t'ai dit la vérité. Je t'ai dit que j'étais réveillé. Ça fait de moi un idiot, pas un
+      saboteur. »
+    decision: d_nolan
+  - id: n9_nolan_p4
+    title: "Nolan — autorisation multiple"
+    text: |
+      « Navigation plus sécurité… donc ça ne peut pas être juste moi. »
+      « Regarde qui représente la sécurité à bord. »
+    decision: d_nolan
+  - id: n9_nolan_p10
+    title: "Nolan — accès supérieur Kira"
+    text: |
+      Nolan devient plus sérieux.
+      « Alors tu sais déjà où regarder. »
+    decision: d_nolan
+
+  - id: n10_preuve_elina
+    title: "Noeud 10 — Montrer preuve à Elina"
+    text: |
+      Tu montres ce que tu as trouvé à Elina.
+    decision: d_preuve_elina
+  - id: n10_elina_p8
+    title: "Elina — Irisite dangereuse"
+    text: |
+      « Je ne voulais pas cacher le danger. Je voulais qu'on le comprenne avant qu'Helix le
+      transforme en produit. »
+    decision: d_elina
+  - id: n10_elina_p6
+    title: "Elina — directive Helix"
+    text: |
+      Elle lit deux fois.
+      « Ce n'est pas une mission d'inspection. C'est une opération de confinement pour que les
+      informations sur l'Irisite restent inconnues du grand public. »
+    decision: d_elina
+  - id: n10_elina_p10
+    title: "Elina — accès supérieur Kira"
+    text: |
+      « Alors la question n'est plus qui pouvait le faire, mais plutôt pourquoi elle le fait. Qui
+      lui a donné cet ordre ? »
+    decision: d_elina
+
+  - id: n11_preuve_arman
+    title: "Noeud 11 — Montrer preuve à Arman"
+    text: |
+      Tu montres ce que tu as trouvé à Arman.
+    decision: d_preuve_arman
+  - id: n11_arman_p9
+    title: "Arman — symptômes équipage"
+    text: |
+      « Je ne voulais pas ajouter de la panique à la panique. Mais oui, quelque chose influence
+      l'équipage. »
+    decision: d_arman
+  - id: n11_arman_p6
+    title: "Arman — directive Helix"
+    text: |
+      Arman blêmit légèrement.
+      « Contrôle de l'information… C'est bizarre, la priorité de Kira devrait être la protection
+      de l'équipage, elle a été programmée pour ça. »
+    decision: d_arman
+  - id: n11_arman_p10
+    title: "Arman — accès supérieur Kira"
+    text: |
+      « Donc elle pouvait agir sans demander, c'est extrêmement inquiétant. »
+    decision: d_arman
+
+  - id: n12_preuve_kira
+    title: "Noeud 12 — Montrer preuve à Kira"
+    text: |
+      Tu confrontes Kira avec une preuve précise.
+    decision: d_preuve_kira
+  - id: n12_kira_p2
+    title: "Kira — accès 03:07"
+    text: |
+      « Un horaire n'est pas une preuve. »
+    decision: d_kira
+  - id: n12_kira_p3
+    title: "Kira — logs effacés"
+    text: |
+      « Les logs peuvent se corrompre tout seuls en situation critique. »
+    decision: d_kira
+  - id: n12_kira_p10
+    title: "Kira — accès supérieur"
+    text: |
+      « Mon accès est normal. »
+    decision: d_kira
+  - id: n12_kira_p6
+    title: "Kira — directive Helix"
+    text: |
+      Elle se tait pendant longtemps. Puis :
+      « Cette directive dépasse ton niveau de compréhension. »
+    # If P6 + P10 are both possessed, the pressure node N7.5 becomes reachable.
+    decision: d_kira
+
+  # --- ACCUSATION FINALE ---
+  - id: n13_accusation
+    title: "Noeud 13 — Déclenchement accusation"
+    consume: { actions: 0 }       # the final accusation does not consume an action
+    text: |
+      Tu demandes à tout le monde de se taire.
+
+      Le couloir paraît soudain plus étroit. Le compte à rebours continue quelque part derrière
+      les murs, mais personne ne le regarde.
+
+      Nolan croise les bras. Elina baisse sa tablette. Arman se rapproche sans un mot. Kira reste
+      immobile.
+
+      Tu annonces ton accusation.
+    decision: d_accusation
+
+  - id: n13_1_accuser_nolan
+    title: "Noeud 13.1 — Accuser Nolan"
+    terminal: true
+    ending: fin_echec_accusation
+    text: |
+      Tu accuses Nolan.
+
+      Il ferme les yeux une seconde, comme s'il s'y attendait depuis le début.
+      « Évidemment. »
+      Il montre la console.
+      « J'étais réveillé, et j'étais au pont. Je n'ai pas menti par culpabilité, mais simplement
+      par peur d'avoir exactement cette conversation. »
+      Il te regarde, plus blessé qu'en colère.
+      « Mais je n'ai pas l'accès sécurité. Je ne peux pas masquer un identifiant prioritaire et je
+      ne peux pas effacer des logs. »
+
+      Kira intervient calmement. « Accusation insuffisante. »
+
+      Le temps continue de filer.
+
+  - id: n13_2_accuser_elina
+    title: "Noeud 13.2 — Accuser Elina"
+    text: |
+      Tu accuses Elina, elle ne semble même pas surprise.
+      « C'est vrai que j'avais une raison de faire ça. Je pense que l'Irisite est dangereuse et
+      qu'Hélix nous ment. Cette mission ne devrait pas avoir eu lieu. »
+      Elle range lentement sa tablette.
+      « Mais saboter la navigation ne sert à rien. Mon objectif serait logiquement de vouloir faire
+      connaître cette information au grand public. Or, là, si je sabotais le vaisseau, j'enterre
+      l'équipage et la vérité avec nous. »
+      Elle regarde Kira.
+      « Et quelqu'un ici préfère visiblement enterrer les choses. »
+    # Mauvaise accusation, mais redirection vers Kira : pas de fin, retour à l'enquête.
+    decision: d_corridor
+
+  - id: n13_3_accuser_arman
+    title: "Noeud 13.3 — Accuser Arman"
+    text: |
+      Tu accuses Arman.
+      « Si j'avais voulu empêcher un risque biologique, j'aurais déclenché une quarantaine.
+      J'aurais verrouillé les sas ou j'aurais forcé un rapport médical. »
+      Il relève les yeux.
+      « En tant que médecin, j'ai dédié ma vie à prendre des décisions pour sauver les autres.
+      Pourquoi voudrais-je mener un équipage de 4 personnes à leur perte ? »
+    # Mauvaise accusation : pas de fin, retour à l'enquête.
+    decision: d_corridor
+
+  - id: n13_4_accuser_kira_sans_preuves
+    title: "Noeud 13.4 — Accuser Kira sans preuves"
+    text: |
+      Tu accuses Kira.
+
+      Elle ne bouge pas, et semble calme.
+      « Sur quelle base ? »
+
+      Le silence qui suit te répond avant les autres. Tu as des soupçons, peut-être même les bons,
+      mais pas encore assez pour forcer une réaction.
+
+      Kira reprend le contrôle de la pièce sans hausser la voix.
+      « Continue ton enquête. »
+    # Pas de fin, retour enquête.
+    decision: d_corridor
+
+  - id: n13_5_accuser_kira_preuves
+    title: "Noeud 13.5 — Accuser Kira avec preuves"
+    text: |
+      Tu accuses Kira.
+
+      Cette fois, personne ne parle immédiatement.
+
+      Tu poses les faits un par un. L'accès manuel à 03:07, l'identifiant masqué, les logs
+      effacés, le verrouillage qui exige d'avoir des droits de navigation et de sécurité, ainsi
+      que la directive Helix sur le contrôle de l'information et son accès prioritaire.
+
+      Kira reste silencieuse jusqu'au dernier mot.
+
+      Puis elle expire lentement.
+      « Tu n'étais pas censé aller aussi loin. »
+
+      Nolan fait un pas vers elle.
+      « Qu'est-ce que tu as fait ? »
+
+      Kira ne le regarde pas.
+      « J'ai appliqué une directive. »
+    goto: n14_fin_reussite
+
+  # --- FINS ---
+  - id: n14_fin_reussite
+    title: "Noeud 14 — Fin réussite"
+    terminal: true
+    ending: fin_reussite
+    text: |
+      La tension explose. Nolan force Kira à reculer pendant qu'Elina récupère son terminal.
+      Arman reste immobile, les yeux fixés sur elle.
+
+      Tu exposes les preuves une par une : l'accès à 03:07, les logs effacés, l'autorisation de
+      sécurité, la directive Helix. Kira refuse de répondre, jusqu'à ce qu'Elina affiche la ligne
+      qu'elle voulait cacher : « Empêcher toute diffusion des effets biologiques liés à l'Irisite. »
+
+      Kira finit par parler.
+      « L'Irisite rend les humains malades, comme vous avez pu le voir : troubles du sommeil,
+      tremblements, pertes de concentration. »
+      Votre mission devait le confirmer.
+
+      Nolan comprend alors que vous n'étiez pas là pour une inspection. Vous étiez une équipe
+      test. Si vous reveniez avec les preuves, Helix ne pourrait plus envoyer les ouvriers sur
+      Kepler-9.
+
+      Kira continue. « Une colonie minière est déjà prévue, avec des milliers de travailleurs. »
+      Arman a un mouvement de dégoût. « Vous allez les tuer. »
+      « Pas tous », dit Kira. « Certains tiendront assez longtemps. Assez pour extraire et pour
+      rentabiliser les premières années. Mais ensuite, Helix aura les moyens de développer des
+      protections, ou de remplacer les équipes. »
+
+      Nolan la fixe, horrifié. « Tu t'entends parler ? »
+      « Je répète simplement une projection de rentabilité », dit-elle.
+
+      Tu comprends alors pourquoi le vaisseau devait disparaître. Si vous reveniez, vous rameniez
+      trop de preuves : les symptômes, les logs médicaux, les données d'Elina et les analyses
+      d'Arman. Tout ce qui pouvait empêcher Helix de lancer sa colonie minière.
+
+      Le silence tombe. Vous étiez censés mourir parce que vous aviez découvert la vérité.
+
+      Nolan combine son accès avec le tien, Elina fournit les paramètres et Arman valide le
+      protocole. Le système hésite, puis la correction se relance, le vaisseau tremble violemment
+      et la trajectoire change.
+
+      Impact évité. Kira est toujours là, Helix aussi, et Kepler-9 attend encore. Mais maintenant,
+      tu sais que vous venez d'empêcher un mensonge capable d'envoyer des milliers de personnes
+      mourir pour un minerai.
+
+# ---------------------------------------------------------------------------
+# Endings (also reachable directly via node `ending:`; fin_echec_temps fires on actions <= 0).
+# ---------------------------------------------------------------------------
+endings:
+  - id: fin_echec_temps
+    title: "Noeud 14.2 — Fin échec temps"
+    terminal: true
+    when: { counter: { actions: { lte: 0 } } }
+    text: |
+      Le compte à rebours arrive à zéro.
+
+      Pendant les dernières secondes, le vaisseau devient étrangement silencieux. Même l'alarme
+      semble inutile maintenant.
+
+      Tu comprends peut-être qui a fait quoi, ou peut-être pas, mais de toute façon, c'est trop
+      tard, l'impact arrive.
+
+  - id: fin_echec_accusation
+    title: "Noeud 14.1 — Fin échec accusation"
+    terminal: true
+    # Reached via n13_1 (and any wrong "single-shot" accusation rule the scenario opts into).
+    when: { never: true }        # only reached through an explicit `ending:` reference
+    text: |
+      Tu as accusé trop vite.
+
+      Les secondes perdues deviennent des minutes, les discussions tournent en rond et aucune
+      conclusion n'est tirée. Chacun se défend et tout le monde s'accuse, mais le vrai saboteur
+      n'a plus besoin de mentir, il lui suffit d'attendre.
+
+      Quand le système annonce la dernière minute avant impact, plus personne ne cherche le
+      coupable.
+
+      Tout le monde regarde l'écran.
+
+      C'est trop tard.
+
+  - id: fin_reussite
+    title: "Noeud 14 — Verdict (réussite)"
+    terminal: true
+    when: { never: true }        # reached through n13_5 → n14 (`ending:` reference)
+    text: |
+      Coupable identifié. Kira appliquait une directive Helix de confinement. L'équipage,
+      réuni, relance la correction de trajectoire. Impact évité — et la vérité sur l'Irisite ne
+      disparaîtra pas avec le vaisseau.
