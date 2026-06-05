@@ -57,6 +57,7 @@ export const actions = {
 				ai: true,
 				engine: 'gamemaster',
 				script,
+				sourceYaml: yamlText,
 				firstNodeTitle: start.title ?? script.meta.title,
 				firstNodeText: start.text,
 				firstNodeAuthor: script.meta.title

@@ -891,6 +891,20 @@
         "type": "json"
       },
       {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text3001001003",
+        "max": 1000000,
+        "min": 0,
+        "name": "sourceYaml",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
         "hidden": false,
         "id": "select3001001002",
         "maxSelect": 1,

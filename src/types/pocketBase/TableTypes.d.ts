@@ -32,6 +32,7 @@ export interface Scenario {
 	firstNodeAuthor: string;
 	engine?: 'legacy' | 'gamemaster'; // empty/undefined ⇒ legacy
 	script?: CompiledScript | null; // compiled gamemaster script; null for legacy scenarios
+	sourceYaml?: string; // raw uploaded YAML, kept so post-upload edits can be diffed against the original
 }
 
 export interface End {
