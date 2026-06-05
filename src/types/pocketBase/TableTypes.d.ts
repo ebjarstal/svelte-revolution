@@ -1,4 +1,6 @@
 import type { BaseNode } from '$types/graph';
+import type { CompiledScript } from '$lib/scenario/compile';
+import type { RuntimeState } from '$lib/server/gamemaster/engine';
 
 export type NodeType = 'contribution' | 'event' | 'startNode' | 'hidden'; // hidden is not in the database
 export type Lang = 'fr' | 'en' | 'jp';
@@ -28,6 +30,8 @@ export interface Scenario {
 	firstNodeTitle: string;
 	firstNodeText: string;
 	firstNodeAuthor: string;
+	engine?: 'legacy' | 'gamemaster'; // empty/undefined ⇒ legacy
+	script?: CompiledScript | null; // compiled gamemaster script; null for legacy scenarios
 }
 
 export interface End {
@@ -56,6 +60,7 @@ export interface Session {
 	author: string;
 	end?: string;
 	useAudio: boolean;
+	state?: RuntimeState | null; // per-session gamemaster runtime; null for legacy sessions
 	created: Date;
 	expand?: {
 		scenario?: Scenario;
