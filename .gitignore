@@ -30,3 +30,6 @@ ia_server/resources/omw-fr.xml
 
 # Local environment overrides
 .env.local
+
+# live gamemaster run artifacts
+tests/output/

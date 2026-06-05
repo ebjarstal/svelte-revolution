@@ -28,8 +28,19 @@
     "scenario": {
       "language": "Langue",
       "yourScenarios": "Vos scénarios",
+      "noScenarios": "Aucun scénario pour le moment.",
       "createYourScenario": "Creez votre scénario",
       "createScenario": "Créer un scénario",
+      "uploadScenario": "Importer un scénario",
+      "uploadHelp": "Importez un fichier YAML de scénario LLM (game master). Il sera compilé et validé avant la création.",
+      "chooseYaml": "Choisir un fichier .yaml",
+      "uploadButton": "Importer",
+      "uploadSuccess": "Scénario importé avec succès",
+      "uploadSuccessTitle": "Scénario «{title}» créé et validé",
+      "openInEditor": "Ouvrir dans l'éditeur",
+      "downloadTemplate": "Télécharger un modèle",
+      "tutoTitle": "Comment écrire un scénario",
+      "tutoBody": "Un scénario s'écrit en YAML avec ces sections :\n• meta : identifiant unique, titre, langue.\n• prologue : le texte d'introduction affiché au joueur.\n• state : variables, drapeaux et compteurs qui évoluent pendant la partie.\n• classifiers : indiquent à l'IA comment classer la réponse du joueur en étiquettes. L'IA NE FAIT QUE classer ; tous les textes affichés sont les tiens.\n• decisions : routent vers le noeud suivant selon l'étiquette et l'état.\n• nodes : les étapes de l'histoire (texte + decision). Le noeud « start » est obligatoire.\n• endings : les fins, déclenchées par une condition.\nTout est validé à l'upload : les erreurs (référence cassée, drapeau non déclaré…) sont listées précisément. Télécharge le modèle pour partir d'une base qui fonctionne.",
       "newScenario": "Nouveau scénario",
       "editScenario": "Modifier le scénario",
       "deleteScenario": "Supprimer le scénario",
@@ -38,7 +49,22 @@
       "scenarioIsNotValide": "Le scénario n'est pas valide",
       "useAi": "Utiliser l'IA",
       "start": "Commencer",
-      "informations": "Informations"
+      "informations": "Informations",
+      "edit": {
+        "title": "Titre",
+        "text": "Texte",
+        "prologue": "Prologue",
+        "nodes": "Nœuds",
+        "endings": "Fins",
+        "classifiers": "Classifieurs (IA)",
+        "instructions": "Instructions",
+        "labels": "Labels",
+        "description": "Description",
+        "graph": "Graphe du scénario",
+        "save": "Enregistrer les modifications",
+        "saved": "Modifications enregistrées",
+        "saveFailed": "Échec de l'enregistrement"
+      }
     },
     "user": {
       "createUser": "Créer un utilisateur",
@@ -80,7 +106,8 @@
     "eventHidden": "Événement pour un autre camp",
 	"replyingTo": "Répondre à",
 	"contribute": "Contribuer",
-	"addAudio": "Ajouter un fichier audio"
+	"addAudio": "Ajouter un fichier audio",
+	"gamemasterUnavailable": "Le maître du jeu est momentanément indisponible. Réessaie dans quelques instants."
   },
   "scenario": {
     "scenario": "Scénario",

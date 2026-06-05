@@ -27,8 +27,19 @@
     "scenario": {
       "language": "Idioma",
       "yourScenarios": "Tus escenarios",
+      "noScenarios": "Aún no hay escenarios.",
       "createYourScenario": "Crea tu escenario",
       "createScenario": "Crear un escenario",
+      "uploadScenario": "Subir un escenario",
+      "uploadHelp": "Sube un archivo YAML de escenario LLM (game master). Se compilará y validará antes de crearlo.",
+      "chooseYaml": "Elegir un archivo .yaml",
+      "uploadButton": "Subir",
+      "uploadSuccess": "Escenario subido correctamente",
+      "uploadSuccessTitle": "Escenario «{title}» creado y validado",
+      "openInEditor": "Abrir en el editor",
+      "downloadTemplate": "Descargar una plantilla",
+      "tutoTitle": "Cómo escribir un escenario",
+      "tutoBody": "Un escenario se escribe en YAML con estas secciones:\n• meta: identificador único, título, idioma.\n• prologue: el texto de introducción que se muestra al jugador.\n• state: variables, banderas y contadores que cambian durante la partida.\n• classifiers: indican a la IA cómo clasificar la respuesta del jugador en etiquetas. La IA SOLO clasifica; todos los textos mostrados son tuyos.\n• decisions: dirigen al siguiente nodo según la etiqueta y el estado.\n• nodes: los pasos de la historia (texto + decision). El nodo « start » es obligatorio.\n• endings: los finales, activados por una condición.\nTodo se valida al subir: los errores (referencia rota, bandera no declarada…) se enumeran con precisión. Descarga la plantilla para partir de una base que funciona.",
       "newScenario": "Nuevo escenario",
       "editScenario": "Editar el escenario",
       "deleteScenario": "Eliminar el escenario",
@@ -37,7 +48,22 @@
       "scenarioIsNotValide": "El escenario no es válido",
       "useAi": "Usar IA",
       "start": "Comenzar",
-      "informations": "Información"
+      "informations": "Información",
+      "edit": {
+        "title": "Título",
+        "text": "Texto",
+        "prologue": "Prólogo",
+        "nodes": "Nodos",
+        "endings": "Finales",
+        "classifiers": "Clasificadores (IA)",
+        "instructions": "Instrucciones",
+        "labels": "Etiquetas",
+        "description": "Descripción",
+        "graph": "Gráfico del escenario",
+        "save": "Guardar cambios",
+        "saved": "Cambios guardados",
+        "saveFailed": "Error al guardar los cambios"
+      }
     },
     "user": {
       "createUser": "Crear un usuario",
@@ -78,7 +104,8 @@
     "noNodeSelected": "Ningún nodo seleccionado",
     "eventHidden": "Evento para otro bando",
     "replyingTo": "Responder a",
-    "contribute": "Contribuir"
+    "contribute": "Contribuir",
+    "gamemasterUnavailable": "El maestro del juego no está disponible por el momento. Inténtalo de nuevo en unos instantes."
   },
   "scenario": {
     "scenario": "Escenario",

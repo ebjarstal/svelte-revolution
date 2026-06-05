@@ -14,7 +14,7 @@ export const actions = {
 		const pb_cookie = data.get('pb_cookie') as string;
 		pb.authStore.loadFromCookie(pb_cookie);
 
-		await pb.collection('users').authRefresh();
+		await pb.collection('Users').authRefresh();
 		
 		if (!pb || !pb.authStore) {
 			return fail(500, { error: 'Database not connected' });

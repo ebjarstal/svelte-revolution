@@ -90,7 +90,7 @@
 		try {
 			switch (result.type) {
 			case 'failure':
-				toast.error(result.data?.error, {
+				toast.error(result.data?.errorKey ? $t(result.data.errorKey) : result.data?.error, {
 					duration: 3000,
 					position: 'bottom-center',
 				});

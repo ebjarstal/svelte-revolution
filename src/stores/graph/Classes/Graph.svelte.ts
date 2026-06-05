@@ -42,7 +42,7 @@ export abstract class Graph<T extends BaseNode, V extends SimulationLinkDatum<T>
 	//#iconsInGraph: Selection<SVGImageElement, T, SVGGElement, T> | undefined;
 
 	_nodes: T[] = $state.raw([]); // lost fine-grained reactivity, but works with d3 (who doesn't like Proxys)
-	#links: V[] = $derived.by(() => this.#buildLinks(this._nodes));
+	#links: V[] = $derived.by(() => this._buildLinks(this._nodes));
 	selectedNode: T | null = $state.raw(null);
 
 	constructor(canvasSvg: SVGElement, nodes: T[], options: Partial<GraphOptions> = {}) {
@@ -94,6 +94,12 @@ export abstract class Graph<T extends BaseNode, V extends SimulationLinkDatum<T>
 		//this.#iconsInGraph = this.#updateIconsInGraph();
 	}
 
+	// Re-render label text only (e.g. after a node title was edited) without restarting the
+	// force simulation, so the layout doesn't jump.
+	refreshLabels() {
+		this.#labelsInGraph?.text((d) => d.title);
+	}
+
 	setOptions(options: Partial<GraphOptions>) {
 		this.options = {
 			...this.options,
@@ -103,7 +109,10 @@ export abstract class Graph<T extends BaseNode, V extends SimulationLinkDatum<T>
 		this._initSimulation();
 	}
 
-	#buildLinks(nodes: T[]) {
+	// Builds the link set fed to d3. Default model: one edge per node from its single `parent`
+	// (a tree). Subclasses that represent a DAG (e.g. ScriptGraph) override this to build links
+	// from an explicit edge list instead of the parent pointer.
+	protected _buildLinks(nodes: T[]): V[] {
 		const links: V[] = [];
 		for (const node of nodes) {
 			const parent = nodes.find((n) => n.id === node.parent);

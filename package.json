@@ -23,6 +23,7 @@
   "dependencies": {
     "@eslint/compat": "^2.0.5",
     "@faker-js/faker": "^10.4.0",
+    "@mistralai/mistralai": "^2.2.5",
     "@tailwindcss/vite": "^4.2.2",
     "@types/sanitize-html": "^2.16.1",
     "bcrypt": "^6.0.0",
@@ -34,6 +35,7 @@
     "svelte-french-toast": "^1.2.0",
     "svelte-i18n": "^4.0.1",
     "svelte-tweakpane-ui": "^1.5.16",
+    "yaml": "^2.9.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -27,8 +27,19 @@
     "scenario": {
       "language": "言語",
       "yourScenarios": "あなたのシナリオ",
+      "noScenarios": "まだシナリオがありません。",
       "createYourScenario": "シナリオを作成",
       "createScenario": "シナリオを作成",
+      "uploadScenario": "シナリオをアップロード",
+      "uploadHelp": "LLMゲームマスターのシナリオYAMLファイルをアップロードします。作成前にコンパイルと検証が行われます。",
+      "chooseYaml": ".yaml ファイルを選択",
+      "uploadButton": "アップロード",
+      "uploadSuccess": "シナリオが正常にアップロードされました",
+      "uploadSuccessTitle": "シナリオ「{title}」を作成・検証しました",
+      "openInEditor": "エディタで開く",
+      "downloadTemplate": "テンプレートをダウンロード",
+      "tutoTitle": "シナリオの書き方",
+      "tutoBody": "シナリオは次のセクションを持つYAMLで記述します:\n• meta：一意のID、タイトル、言語。\n• prologue：プレイヤーに最初に表示される導入文。\n• state：プレイ中に変化する変数・フラグ・カウンター。\n• classifiers：プレイヤーの回答をラベルに分類する方法をAIに伝えます。AIは分類だけを行い、表示される文章はすべてあなたのものです。\n• decisions：ラベルと状態に応じて次のノードへ分岐します。\n• nodes：物語の各ステップ（テキスト＋decision）。「start」ノードは必須です。\n• endings：条件で発動する結末。\nすべてアップロード時に検証されます：エラー（参照切れ、未宣言のフラグなど）は正確に一覧表示されます。動作するひな形から始めるにはテンプレートをダウンロードしてください。",
       "newScenario": "新しいシナリオ",
       "editScenario": "シナリオを編集",
       "deleteScenario": "シナリオを削除",
@@ -37,7 +48,22 @@
       "scenarioIsNotValide": "シナリオは無効です",
       "useAi": "AIを使用",
       "start": "開始",
-      "informations": "Information"
+      "informations": "Information",
+      "edit": {
+        "title": "タイトル",
+        "text": "テキスト",
+        "prologue": "プロローグ",
+        "nodes": "ノード",
+        "endings": "エンディング",
+        "classifiers": "分類器（AI）",
+        "instructions": "指示",
+        "labels": "ラベル",
+        "description": "説明",
+        "graph": "シナリオグラフ",
+        "save": "変更を保存",
+        "saved": "変更を保存しました",
+        "saveFailed": "保存に失敗しました"
+      }
     },
     "user": {
       "createUser": "ユーザーを作成",
@@ -78,7 +104,8 @@
     "noNodeSelected": "ノードが選択されていません",
     "eventHidden": "別のチーム向けのイベント",
     "replyingTo": "返信先",
-    "contribute": "投稿する"
+    "contribute": "投稿する",
+    "gamemasterUnavailable": "ゲームマスターは現在一時的に利用できません。しばらくしてからもう一度お試しください。"
   },
   "scenario": {
     "scenario": "シナリオ",
