@@ -112,6 +112,21 @@ export async function runGamemasterTurn(
 		parent = String(created.id);
 	}
 
+	// Off-topic / unmatched input: the engine made no move. Nudge the player back on track with
+	// the scenario's `reprompt` text (if authored) instead of answering with silence.
+	if (result.reprompt && script.reprompt) {
+		await createNode(pb, {
+			title: '',
+			text: script.reprompt,
+			author,
+			session: session.id,
+			parent,
+			type: 'event',
+			side: null,
+			audio: null
+		});
+	}
+
 	// On an ending, show its prose and close the session.
 	if (result.ending) {
 		await createNode(pb, {

@@ -105,7 +105,8 @@
     "eventHidden": "Evento para otro bando",
     "replyingTo": "Responder a",
     "contribute": "Contribuir",
-    "gamemasterUnavailable": "El maestro del juego no está disponible por el momento. Inténtalo de nuevo en unos instantes."
+    "gamemasterUnavailable": "El maestro del juego no está disponible por el momento. Inténtalo de nuevo en unos instantes.",
+    "sessionOver": "Esta sesión ha terminado."
   },
   "scenario": {
     "scenario": "Escenario",

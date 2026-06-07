@@ -105,7 +105,8 @@
     "eventHidden": "Event for another side",
     "replyingTo": "Replying to",
     "contribute": "Contribute",
-    "gamemasterUnavailable": "The game master is temporarily unavailable. Please try again in a moment."
+    "gamemasterUnavailable": "The game master is temporarily unavailable. Please try again in a moment.",
+    "sessionOver": "This session is over."
   },
   "scenario": {
     "scenario": "Scenario",

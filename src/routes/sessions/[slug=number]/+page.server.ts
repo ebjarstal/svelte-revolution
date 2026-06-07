@@ -40,6 +40,18 @@ export const actions: Actions = {
 			const sessionData = await pb
 				.collection('Session')
 				.getOne<Session>(nodeData.session, { expand: 'scenario' });
+
+			// A finished session takes no further input. Reject before creating a node so we don't
+			// leave an orphan contribution with no response (the gamemaster engine also no-ops once
+			// `state.ended` is set). The play UI hides the form when completed; this guards the action.
+			if (sessionData.completed) {
+				return fail(409, {
+					success: false,
+					error: 'This session is over.',
+					errorKey: 'inSession.sessionOver'
+				});
+			}
+
 			const isGamemaster = sessionData.expand?.scenario?.engine === 'gamemaster';
 			let censorResponse: Awaited<ReturnType<typeof censorNode>> | null = null;
 			if (!isGamemaster && sessionData.expand?.scenario?.ai) {

@@ -107,7 +107,8 @@
 	"replyingTo": "Répondre à",
 	"contribute": "Contribuer",
 	"addAudio": "Ajouter un fichier audio",
-	"gamemasterUnavailable": "Le maître du jeu est momentanément indisponible. Réessaie dans quelques instants."
+	"gamemasterUnavailable": "Le maître du jeu est momentanément indisponible. Réessaie dans quelques instants.",
+	"sessionOver": "Cette session est terminée."
   },
   "scenario": {
     "scenario": "Scénario",

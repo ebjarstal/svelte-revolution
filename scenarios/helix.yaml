@@ -37,6 +37,13 @@ prologue: |
 
   À 03:12, l'alarme te réveille.
 
+# Shown when the player's contribution is off-topic (classifier label IRRELEVANT) and matches
+# no transition. The turn does not advance, consumes no action, and reveals no clue.
+reprompt: |
+  Ce que tu dis n'a aucun rapport avec la situation. Le compte à rebours continue de défiler et le
+  vaisseau dérive toujours vers les débris. Concentre-toi sur l'enquête : le terminal, les logs, les
+  accès, ou l'équipage dans le couloir.
+
 # ---------------------------------------------------------------------------
 # Per-session state
 # ---------------------------------------------------------------------------
@@ -83,6 +90,9 @@ classifiers:
       - PREUVE : confronte un PERSONNAGE précis (target OBLIGATOIRE) avec une preuve. Si aucun
         personnage n'est visé, ce n'est PAS PREUVE : utilise plutôt LOGS, SYSTEME ou ACCES.
       - ACCUSER : accusation finale explicite (« j'accuse X », « c'est X », « le coupable est X »).
+      - IRRELEVANT : la contribution est hors-sujet ou n'a aucun rapport avec l'enquête à bord
+        (bavardage, question sur le monde réel, message vide, absurde ou incompréhensible).
+        N'invente pas une intention : si rien d'autre ne correspond vraiment, choisis IRRELEVANT.
       target : nolan (pilote), elina (scientifique), arman (médecin), kira (sécurité Helix),
       equipage (tous), systeme (le terminal), ou null si aucune cible.
     output:
@@ -97,6 +107,7 @@ classifiers:
         - { id: SUSPECTER,  description: "soupçonne fortement un personnage (pas final)" }
         - { id: PREUVE,     description: "confronte un personnage avec une preuve" }
         - { id: ACCUSER,    description: "accusation finale explicite d'un personnage" }
+        - { id: IRRELEVANT, description: "hors-sujet / sans rapport avec l'enquête" }
       target:
         nullable: true
         values: [nolan, elina, arman, kira, equipage, systeme]

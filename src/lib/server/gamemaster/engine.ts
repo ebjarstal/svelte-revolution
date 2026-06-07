@@ -34,6 +34,7 @@ export interface RuntimeState {
 export interface StepResult {
 	created: ScenarioNode[]; // authored nodes entered this turn, in display order
 	ending: Ending | null; // set once the session terminates
+	reprompt?: boolean; // no transition matched — state untouched; caller may show `script.reprompt`
 }
 
 const EMPTY_DECISION: LlmDecision = {};
@@ -67,7 +68,9 @@ export function step(script: Script, state: RuntimeState, decision: LlmDecision)
 
 	const transitions = gatherCandidates(script, node);
 	const t = selectTransition(transitions, state, decision, script);
-	if (!t) return { created: [], ending: null }; // no transition matched; caller handles fallback (§7)
+	// No transition matched (e.g. an IRRELEVANT/off-topic classification): leave the state
+	// untouched — no advance, no action consumed — and let the caller re-prompt the player (§7).
+	if (!t) return { created: [], ending: null, reprompt: true };
 
 	const res = enter(script, state, t.to, t.effects, true);
 	if (state.ended) return res; // ended via a terminal/ending node or a direct `to:` ending
