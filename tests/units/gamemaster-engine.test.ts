@@ -135,3 +135,28 @@ describe('gamemaster engine — local-first transition ordering', () => {
 		expect(state.history.slice(before)).not.toContain('n7_kira_contact');
 	});
 });
+
+describe('gamemaster engine — IRRELEVANT / unmatched input re-prompts without advancing', () => {
+	it('helix declares the IRRELEVANT label and a reprompt message', () => {
+		const labels = helix.classifierSchemas.helix_intent.properties.label as { enum: string[] };
+		expect(labels.enum).toContain('IRRELEVANT');
+		expect(typeof helix.reprompt).toBe('string');
+	});
+
+	it('an unmatched label keeps the current node, consumes no action, and signals reprompt', () => {
+		const state = initState(helix);
+		step(helix, state, L('SYSTEME')); // → n2_terminal (awaits input)
+		const node = state.currentNode;
+		const actions = state.counters.actions;
+		const historyLen = state.history.length;
+
+		const res = step(helix, state, L('IRRELEVANT'));
+
+		expect(res.reprompt).toBe(true);
+		expect(res.created).toEqual([]);
+		expect(res.ending).toBeNull();
+		expect(state.currentNode).toBe(node); // did not advance
+		expect(state.counters.actions).toBe(actions); // no action consumed
+		expect(state.history.length).toBe(historyLen); // no node entered
+	});
+});

@@ -167,6 +167,10 @@ export const scriptSchema = z.strictObject({
 	decisions: z.record(z.string(), decisionSchema).optional().default({}),
 	global: globalSchema.optional(),
 	nodes: z.array(nodeSchema),
-	endings: z.array(endingSchema)
+	endings: z.array(endingSchema),
+	// Narration shown when the player's contribution matches no transition (e.g. an off-topic
+	// message the classifier tagged IRRELEVANT). The turn does not advance or consume an action;
+	// this text just nudges the player back on track. Omit it to keep the silent no-op behaviour.
+	reprompt: z.string().optional()
 });
 export type Script = z.infer<typeof scriptSchema>;

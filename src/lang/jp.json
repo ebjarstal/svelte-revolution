@@ -105,7 +105,8 @@
     "eventHidden": "別のチーム向けのイベント",
     "replyingTo": "返信先",
     "contribute": "投稿する",
-    "gamemasterUnavailable": "ゲームマスターは現在一時的に利用できません。しばらくしてからもう一度お試しください。"
+    "gamemasterUnavailable": "ゲームマスターは現在一時的に利用できません。しばらくしてからもう一度お試しください。",
+    "sessionOver": "このセッションは終了しました。"
   },
   "scenario": {
     "scenario": "シナリオ",
