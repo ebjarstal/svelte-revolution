@@ -116,7 +116,9 @@ export async function runGamemasterTurn(
 	// the scenario's `reprompt` text (if authored) instead of answering with silence.
 	if (result.reprompt && script.reprompt) {
 		await createNode(pb, {
-			title: '',
+			// `Node.title` is a required field, so reuse the narrator name rather than an empty
+			// string (which PocketBase rejects, failing the whole turn).
+			title: author,
 			text: script.reprompt,
 			author,
 			session: session.id,
