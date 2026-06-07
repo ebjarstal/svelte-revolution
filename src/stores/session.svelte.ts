@@ -35,7 +35,7 @@ export class CurrentSessionStore {
 	/* Info about the user for the specific session (based on admin and localstorage) */
 	sessionProfile: UserSessionProfile = $state()!;
 	readonly userCanAccess: boolean = $derived(
-		Boolean((this.sessionProfile?.admin || (this.sessionProfile?.choosedSideId && this.sessionProfile?.pseudo)))
+		Boolean((this.sessionProfile?.admin || this.session.completed || (this.sessionProfile?.choosedSideId && this.sessionProfile?.pseudo)))
 	);
 	/**
 	 * User explicitly clicked on "Start" on the prologue
