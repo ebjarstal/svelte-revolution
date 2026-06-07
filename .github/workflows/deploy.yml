@@ -41,5 +41,5 @@ jobs:
                   cp -a /tmp/.env.prod.keep .env.prod
                   cp -a /tmp/docker-compose.yml.keep docker-compose.yml
 
-                  docker-compose up -d --build
+                  docker compose up -d --build
                   EOF
