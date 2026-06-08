@@ -655,7 +655,7 @@ nodes:
 endings:
 
   - id: fin5_session_interrompue
-    title: "Fin 5 — Session interrompue"
+    title: "Session interrompue"
     terminal: true
     when:
       or:
@@ -673,7 +673,7 @@ endings:
       Un agent vous contactera.
 
   - id: fin4_eveille
-    title: "Fin 4 — Éveillé"
+    title: "Éveillé"
     terminal: true
     when: { flag: final, var: { score_eveil: eleve } }
     text: |
@@ -698,7 +698,7 @@ endings:
       Veuillez ne pas quitter votre logement.
 
   - id: fin3_reeducation_expressive
-    title: "Fin 3 — Rééducation expressive"
+    title: "Rééducation expressive"
     terminal: true
     when:
       flag: final
@@ -721,7 +721,7 @@ endings:
       Veuillez rester disponible.
 
   - id: fin2_surveillance_legere
-    title: "Fin 2 — Surveillance légère"
+    title: "Surveillance légère"
     terminal: true
     when:
       flag: final
@@ -741,7 +741,7 @@ endings:
       Ce n'est pas une sanction, c'est une mesure de stabilité, c'est fait pour vous.
 
   - id: fin1_citoyen_stable
-    title: "Fin 1 — Citoyen stable"
+    title: "Citoyen stable"
     terminal: true
     # Fallback when `final` is set and no riskier band matched.
     when:
